@@ -6,6 +6,45 @@ from separation import anchored_alpha,composite,prepare,render,replay,trim_suppo
 from backdrop_finish import pack,unpack
 
 class SeparationTests(unittest.TestCase):
+ def test_truncated_background_patch_is_not_promoted_to_contact_prop(self):
+  from support_geometry import attached_props
+  rgb=np.full((300,240,3),210,np.uint8);support=np.zeros((300,240),bool);support[160:280,80:180]=True;rgb[support]=230
+  # Wall shadow crosses the search boundary; it has no measured object top.
+  rgb[80:160,100:180]=170
+  alpha=np.zeros((300,240),np.float32);alpha[80:165,175:190]=1;rgb[alpha>0]=70
+  props=attached_props(rgb,alpha,support,np.full_like(rgb,210,dtype=float))
+  self.assertFalse(props[140,130])
+
+ def test_measured_box_replaces_oversized_shadow_support(self):
+  rgb=np.full((220,180,3),210,np.uint8);rgb[125:200,75:135]=235;rgb[80:125,75:135]=170
+  alpha=np.zeros((220,180),np.float32);alpha[30:140,45:65]=1;rgb[alpha>0]=60
+  rough=np.zeros((220,180),np.uint8);rough[80:200,75:135]=255
+  measured=np.zeros_like(rough);measured[125:200,75:135]=255
+  plan={'coefficients':[[210]*3]+[[0]*3]*5,'low':[210]*3,'high':[210]*3,'floor':1,
+        'layers':{'shape':[220,180],'support':pack(rough),'geometrySupport':pack(measured)}}
+  prepare(plan,rgb,alpha,alpha,[])
+  result=unpack(plan['layers']['foregroundAlpha'],[220,180])
+  self.assertEqual(result[100,100],0);self.assertEqual(result[150,100],255)
+
+ def test_shaded_support_rim_is_recovered_without_protecting_external_background(self):
+  from support_geometry import support_source_masks
+  rgb=np.full((300,240,3),30,np.uint8);support=np.zeros((300,240),bool)
+  support[90:260,105:170]=True;rgb[90:260,100:170]=220;rgb[90:100,100:170]=110;rgb[100:260,100:105]=85
+  exact,blend=support_source_masks(rgb,np.full_like(rgb,30,dtype=float),np.zeros((300,240),np.float32),support,np.zeros_like(support))
+  self.assertTrue(exact[95,102]);self.assertTrue(exact[180,102])
+  self.assertFalse(exact[180,95]);self.assertEqual(blend[180,95],0)
+
+ def test_native_prop_boundary_pixels_are_copied_without_edge_rematting(self):
+  rng=np.random.default_rng(8);source=Image.fromarray(rng.integers(0,256,(141,123,3),dtype=np.uint8))
+  alpha=np.zeros((40,35),np.uint8);alpha[8:33,10:26]=128
+  contact=np.zeros_like(alpha);contact[9:32,10:12]=255;contact[9:11,10:26]=255
+  plan={'layers':{'shape':[40,35],'foregroundAlpha':pack(alpha),'sourceContact':pack(contact)}}
+  with patch('neural.repair',return_value=Image.new('RGB',source.size,(20,25,30))):
+   actual=np.asarray(render(source,np.zeros_like(alpha),plan))
+  boundary=np.asarray(Image.fromarray(contact).resize(source.size,Image.Resampling.NEAREST))>0
+  np.testing.assert_array_equal(actual[boundary],np.asarray(source)[boundary])
+  np.testing.assert_array_equal(actual[0,0],[20,25,30])
+
  def test_books_touching_hand_and_pedestal_keep_their_printed_source_pixels(self):
   from support_geometry import attached_props
   rgb=np.full((240,180,3),30,np.uint8);support=np.zeros((240,180),bool);support[120:220,70:145]=True;rgb[support]=230

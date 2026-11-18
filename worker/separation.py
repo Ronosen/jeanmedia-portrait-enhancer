@@ -56,16 +56,26 @@ def prepare(plan,rgb,alpha,probability,objects):
  h,w=alpha.shape;yy,xx=np.mgrid[:h,:w]
  model=np.clip(background_basis(xx/max(1,w-1),yy/max(1,h-1))@np.asarray(plan['coefficients']),plan['low'],plan['high'])
  alpha=alpha.copy()
+ model_alpha=alpha.copy();source_contact=np.zeros((h,w),bool);source_blend=np.zeros((h,w),np.float32)
  if plan['layers'].get('support'):
   # A person-only matte can omit a white pedestal or supporting seat. Retain
   # independently confirmed support geometry in the extracted source layer.
   support=unpack(plan['layers']['support'],[h,w])>0
+  geometry=unpack(plan['layers']['geometrySupport'],[h,w])>0 if plan['layers'].get('geometrySupport') else np.zeros((h,w),bool)
+  if geometry.any():
+   # A measured box silhouette supersedes a broad colour/shadow component.
+   count,parts,stats,_=cv2.connectedComponentsWithStats(support.astype(np.uint8))
+   for part in range(1,count):
+    region=parts==part
+    if (region&geometry).sum()>stats[part,cv2.CC_STAT_AREA]*.1:support[region]=False
+   support |= geometry
   if support.any():
    light_backdrop=np.median(model.mean(axis=2))>140
    n,labels,stats,_=cv2.connectedComponentsWithStats(support.astype(np.uint8))
    for i in range(1,n):
     part=labels==i;x,y,bw,bh,area=stats[i]
     if area<h*w*.005:continue
+    if (part&geometry).sum()>area*.5:continue
     threshold=float(np.percentile(rgb[part].mean(axis=1),90))-30
     if threshold<155:continue
     white=part&(rgb.mean(axis=2)>threshold)&(np.ptp(rgb,axis=2)<50)
@@ -80,10 +90,14 @@ def prepare(plan,rgb,alpha,probability,objects):
   support=trimmed
   alpha[support]=1
  if plan['layers'].get('support'):
-  from support_geometry import attached_props
-  support=unpack(plan['layers']['support'],[h,w])>0
+  from support_geometry import attached_props,support_source_masks
   props=attached_props(rgb,alpha,support,model)
   alpha[props]=1
+  # Bright support surfaces can have shaded rims below the old white-hull
+  # threshold. They remain source geometry, including the rim beneath books.
+  source_contact,source_blend=support_source_masks(rgb,model,model_alpha,support,props)
+  alpha=np.maximum(alpha,source_blend)
+  alpha[source_contact]=1
  # Soft floor reflections are background, not part of the extracted person.
  # Keep the measured edge beside opaque people/supports; discard remote haze.
  distance=cv2.distanceTransform((alpha<.5).astype(np.uint8),cv2.DIST_L2,3)
@@ -130,6 +144,8 @@ def prepare(plan,rgb,alpha,probability,objects):
  layers['edgeProtected']=layers['protected'];layers['backdrop']=pack(selected.astype(np.uint8)*255)
  layers['clutter']=pack(clutter.astype(np.uint8)*255)
  layers['wallSurface']=pack(wall.astype(np.uint8)*255)
+ layers['sourceContact']=pack(source_contact.astype(np.uint8)*255)
+ layers['sourceContactBlend']=pack(np.rint(source_blend*255).astype(np.uint8))
  plan['surfaceContour']=contour
  plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v2','backdropMethod':'local-evidence-v3'}
  if selected.mean()>.04:
@@ -221,6 +237,14 @@ def render(source,selected,plan):
  background=finish(background,plan)
  progress('Combining protected subjects and background',90)
  result=composite(source,background,matte)
+ if plan['layers'].get('sourceContact'):
+  # Keep original native-resolution antialiasing at internal hard-object
+  # joins; preview-mask interpolation must not redraw a physical prop edge.
+  if plan['layers'].get('sourceContactBlend'):
+   blend=Image.fromarray(unpack(plan['layers']['sourceContactBlend'],shape)).resize(source.size,Image.Resampling.BILINEAR)
+   result=Image.composite(source,result,blend)
+  contact=Image.fromarray(unpack(plan['layers']['sourceContact'],shape)).resize(source.size,Image.Resampling.NEAREST)
+  result=Image.composite(source,result,contact)
  if plan.get('propRepairs'):
   from props import heal_props
   result=heal_props(result,plan['propRepairs'])

@@ -29,6 +29,18 @@ for name in sys.argv[2:]:
    box=(0,y,source.width,min(source.height,y+256))
    different+=int(np.count_nonzero(np.any(np.asarray(actual.crop(box))!=np.asarray(finished.crop(box)),axis=2)))
  row={'image':name,'subjectCoreChangesBeforeTone':core_changes,'savedExportReplayDifferences':different}
+ if plan['layers'].get('sourceContact'):
+  contact=unpack(plan['layers']['sourceContact'],shape)>0
+  edge=contact&(cv2.erode(contact.astype(np.uint8),np.ones((3,3),np.uint8))==0)
+  if plan.get('propRepairs'):edge &= decode_mask(plan['propRepairs']['mask'],tuple(shape))==0
+  native_edge=Image.fromarray(edge.astype(np.uint8)*255).resize(source.size,Image.Resampling.NEAREST)
+  changes=0;checked=0
+  for y in range(0,source.height,256):
+   box=(0,y,source.width,min(source.height,y+256));selected=np.asarray(native_edge.crop(box))>0
+   checked+=int(selected.sum())
+   changes+=int(np.count_nonzero(np.any(np.asarray(source.crop(box))[selected]!=np.asarray(raw.crop(box))[selected],axis=1)))
+  row.update(propBoundaryPixelsChecked=checked,propBoundaryChangesBeforeTone=changes)
+  assert changes==0,row
  contour=plan.get('surfaceContour',{}).get('groundRows',[])
  if len(contour)==shape[1]:
   gap=max(3,max(2,round(shape[0]*.006))*2)

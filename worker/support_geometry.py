@@ -3,10 +3,44 @@ import cv2
 import numpy as np
 
 
+def support_contacts(alpha,support,props=None):
+    """Seal internal joins between confirmed props and adjacent foreground.
+
+    A hard prop/person join is already photographed foreground. Re-matting its
+    two sides independently invents background cracks and stair-stepped edges.
+    External prop edges without an adjacent foreground core stay unexpanded.
+    """
+    props=np.zeros_like(support,dtype=bool) if props is None else props
+    hard=support|props
+    if not hard.any():return np.zeros_like(hard)
+    radius=max(3,round(min(support.shape)*.01))
+    kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(radius*2+1,)*2)
+    outside=cv2.dilate(hard.astype(np.uint8),np.ones((3,3),np.uint8))==0
+    adjacent=(alpha>.9)&outside
+    contact=(cv2.dilate(hard.astype(np.uint8),kernel)>0)&(cv2.dilate(adjacent.astype(np.uint8),kernel)>0)
+    if support.any() and props.any():
+        contact |= (cv2.dilate(support.astype(np.uint8),kernel)>0)&(cv2.dilate(props.astype(np.uint8),kernel)>0)
+    return contact
+
+
+def support_source_masks(rgb,model,alpha,support,props):
+    contact=support_contacts(alpha,support,props)
+    radius=max(2,round(min(support.shape)*.005))
+    distance=cv2.distanceTransform(contact.astype(np.uint8),cv2.DIST_L2,3)
+    blend=np.clip(distance/radius,0,1)
+    reach=max(3,round(min(support.shape)*.025))
+    near=cv2.dilate(support.astype(np.uint8),cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(reach*2+1,)*2))>0
+    surface=near&(rgb.mean(axis=2)-model.mean(axis=2)>10)
+    exact=surface|props|(blend>=1)
+    blend[exact]=1
+    return exact,blend.astype(np.float32)
+
+
 def attached_props(rgb,alpha,support,model):
     """Retain compact source objects contacting both a support top and a hand."""
     result=np.zeros_like(support,dtype=bool);h,w=support.shape
     person=(alpha>.5)&~support
+    source_edges=cv2.dilate(cv2.Canny(cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY),12,30),np.ones((3,3),np.uint8))>0
     n,labels,stats,_=cv2.connectedComponentsWithStats(support.astype(np.uint8))
     for index in range(1,n):
         x,y,bw,bh,area=stats[index]
@@ -15,13 +49,25 @@ def attached_props(rgb,alpha,support,model):
         if y-top<4:continue
         region=np.s_[top:bottom,x:x+bw]
         contrast=np.max(np.abs(rgb[region].astype(float)-model[region]),axis=2)>25
+        contrast &= ~person[region]
         contrast=cv2.morphologyEx(contrast.astype(np.uint8),cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
         count,parts,boxes,_=cv2.connectedComponentsWithStats(contrast)
         hand=cv2.dilate(person[region].astype(np.uint8),np.ones((7,7),np.uint8))>0
         for part in range(1,count):
             px,py,pw,ph,size=boxes[part];mask=parts==part
             if size<max(20,area*.005) or ph<4 or py+ph<y-top-3:continue
+            # A component cut by the search window is not a measured object
+            # silhouette. Its convex hull would preserve a rectangle of wall.
+            if py==0:continue
             if not (mask&hand).any():continue
+            positive=(rgb[region].mean(axis=2)-model[region].mean(axis=2)>15)
+            if positive[mask].mean()<.15:
+                # A diffuse cast shadow can touch both the arm and pedestal.
+                # A dark prop must have a physical source edge, not merely a
+                # threshold crossing or the artificial edge of this crop.
+                boundary=cv2.morphologyEx(mask.astype(np.uint8),cv2.MORPH_GRADIENT,np.ones((3,3),np.uint8))>0
+                boundary &= ~hand
+                if not boundary.any() or source_edges[region][boundary].mean()<.45:continue
             # Source geometry, including dark printed details between bright
             # book covers, belongs to the contacting prop, not the backdrop.
             contours,_=cv2.findContours(mask.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)

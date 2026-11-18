@@ -151,3 +151,30 @@ Regression checks cover the retry, opposing unrelated edges, contact props and
 insufficient samples. Full-resolution checks are recorded in
 `qa/backdrop-extent-final`; they retain source hashes and compare subject cores,
 unselected pixels and saved export replay.
+
+## Preserve photographed prop joins — revision 12
+
+Separate person and prop mattes left thin cracks along pedestal/gown contacts
+and beneath books. New plans seal only contact regions with adjacent foreground
+cores, recover source-bright shaded rims near confirmed supports, and record
+`layers.sourceContact` plus a soft outer `sourceContactBlend`. Exterior edges
+without contact are not expanded by the contact guard; local surface recovery
+still requires source contrast against the fitted backdrop.
+
+Rendering restores original native pixels in the exact protection mask after
+compositing. A feathered outer transition avoids creating a new cutout edge at
+the guard boundary. Saved older plans retain their rendering. Intentional prop
+healing remains a separate operation.
+
+Tests now cover shaded rims, unchanged external background, and native prop
+boundary pixels without eroding away the boundary. The export verifier reports
+`propBoundaryPixelsChecked` and `propBoundaryChangesBeforeTone` separately from
+subject-core preservation. Real-image comparisons are in
+`qa/prop-edge-verified-reported` and `qa/prop-edge-verified-seated`.
+
+Measured box geometry now takes precedence over overlapping coarse colour/shadow
+support regions. Contact props are measured outside the existing person mask;
+components truncated at the search boundary cannot become protected hulls.
+Dark props additionally need physical source-edge evidence, preventing diffuse
+wall shadows from being treated as objects. White-backdrop regressions cover
+oversized support/shadow regions and preserve the complete measured box.

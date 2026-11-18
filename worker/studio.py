@@ -274,11 +274,13 @@ def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
         model = np.clip(background_basis(xx / max(1, width-1),
                                         yy / max(1, height-1)) @ coefficients, low, high)
     confirmed_support=np.zeros_like(protected)
+    geometric_support=np.zeros_like(protected)
     if detailed:
         protected, found_support, confirmed_support = support_shapes(rgb, person, protected, model, floor)
         if plan.get('adaptiveRevision'):
             from support_geometry import box_seats
             recovered=box_seats(rgb,person)
+            geometric_support=recovered
             protected |= recovered
             confirmed_support |= recovered
             found_support = found_support or recovered.any()
@@ -401,6 +403,7 @@ def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
                       "floorWitness": encoded(floor_witness.astype(np.uint8)*255),
                       "source": encoded(rgb),
                       "support": encoded(confirmed_support.astype(np.uint8)*255),
+                      "geometrySupport": encoded(geometric_support.astype(np.uint8)*255),
                       "protected": encoded(protected.astype(np.uint8)*255),
                       "backdrop": encoded(np.rint(alpha*255).astype(np.uint8))}
     return plan, alpha, kept
