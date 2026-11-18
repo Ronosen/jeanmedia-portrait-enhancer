@@ -41,7 +41,22 @@ def fit_backdrop(rgb, protected, floor):
     points = coordinates[chosen]
     values = colors[chosen]
     if np.ptp(points[:, 1]) < width * .35 or np.ptp(points[:, 0]) < height * .25:
-        raise BackdropExtentError("Needs Review · The visible backdrop is too small to extend reliably.")
+        # A cropped white seat can be the largest colour bin while the wall
+        # spans several nearby bins. Test the other dominant colour families
+        # against the same coverage guards before rejecting the visible wall.
+        counts=np.bincount(ids)
+        alternatives=[]
+        for candidate in np.argsort(counts)[-12:]:
+            if not counts[candidate]:continue
+            colour=np.median(colors[ids==candidate],axis=0)
+            family=np.max(np.abs(colors-colour),axis=1)<38
+            witness=coordinates[family]
+            if family.mean()<.32 or np.ptp(witness[:,1])<width*.35 or np.ptp(witness[:,0])<height*.25:continue
+            alternatives.append((int(family.sum()),family))
+        if not alternatives:
+            raise BackdropExtentError("Needs Review · The visible backdrop is too small to extend reliably.")
+        chosen=max(alternatives,key=lambda item:item[0])[1]
+        points=coordinates[chosen];values=colors[chosen]
     design = background_basis(points[:, 1] / max(1, width-1),
                               points[:, 0] / max(1, height-1))
     weights = np.ones(len(points))
@@ -557,7 +572,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
     plan["equipmentPlan"] = equipment
     if separated is not None:
         from separation import prepare
-        alpha=prepare(plan,pixels,separated,probability,objects)
+        alpha=prepare(plan,pixels,separated,probability,objects,raw_alpha)
         from backdrop_finish import pack
         plan['layers']['rawForegroundAlpha']=pack(np.rint(raw_alpha*255).astype(np.uint8))
     if group_info:plan['groupProtection']=group_info

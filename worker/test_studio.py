@@ -8,6 +8,17 @@ from studio import prepare_backdrop, render_backdrop
 
 
 class StudioBackdropTests(unittest.TestCase):
+    def test_cropped_seat_colour_does_not_hide_a_valid_wall_family(self):
+        from studio import fit_backdrop
+        rgb=np.full((400,300,3),45,np.uint8)
+        protected=np.zeros((400,300),bool);protected[95:320,30:270]=True
+        # More samples occupy one seat bin; wall shading spans several bins.
+        rgb[320:]=165
+        rgb[:95]=np.linspace(25,65,95).astype(np.uint8)[:,None,None]
+        rgb[95:320,:30]=35;rgb[95:320,270:]=60
+        coefficients,low,high,model=fit_backdrop(rgb,protected,1)
+        self.assertLess(float(high.max()),90)
+
     def test_tiny_backdrop_rechecks_floor_with_independent_foreground_evidence(self):
         from studio import BackdropExtentError,fit_backdrop
         image,probability,objects=self.scene();rgb=np.asarray(image)
@@ -45,7 +56,7 @@ class StudioBackdropTests(unittest.TestCase):
                 full,after,plan,status=auto_edit(image,image,True)
             self.assertEqual(status,'Needs review')
             self.assertEqual(plan['adaptiveRevision'],3)
-            self.assertEqual(plan['processingRevision'],12)
+            self.assertEqual(plan['processingRevision'],13)
             self.assertEqual(image.tobytes(),after.tobytes())
             self.assertEqual(change_mask(plan).getbbox(),None)
             _,replay,_=clean_studio(image,image,plan,export=True)

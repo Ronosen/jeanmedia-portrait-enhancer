@@ -6,6 +6,17 @@ from separation import anchored_alpha,composite,prepare,render,replay,trim_suppo
 from backdrop_finish import pack,unpack
 
 class SeparationTests(unittest.TestCase):
+ def test_geometry_panel_does_not_erase_the_rest_of_a_bright_seat(self):
+  rgb=np.full((240,200,3),25,np.uint8);rgb[140:220,65:180]=220
+  alpha=np.zeros((240,200),np.float32);alpha[50:145,60:95]=1;rgb[alpha>0]=80
+  rough=np.zeros((240,200),np.uint8);rough[140:220,65:180]=255
+  measured=np.zeros_like(rough);measured[140:220,65:140]=255
+  plan={'coefficients':[[25]*3]+[[0]*3]*5,'low':[25]*3,'high':[25]*3,'floor':1,
+        'layers':{'shape':[240,200],'support':pack(rough),'geometrySupport':pack(measured)}}
+  prepare(plan,rgb,alpha,alpha,[])
+  actual=unpack(plan['layers']['foregroundAlpha'],[240,200])
+  self.assertEqual(actual[180,170],255);self.assertEqual(actual[180,190],0)
+
  def test_truncated_background_patch_is_not_promoted_to_contact_prop(self):
   from support_geometry import attached_props
   rgb=np.full((300,240,3),210,np.uint8);support=np.zeros((300,240),bool);support[160:280,80:180]=True;rgb[support]=230

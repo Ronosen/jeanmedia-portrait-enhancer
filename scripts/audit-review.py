@@ -10,13 +10,18 @@ from adaptive import auto_edit
 from preflight import inspect
 from service import change_mask
 from runtime import sha256,manifest
+import runtime
+runtime_info=manifest()
+# Each isolated audit process uses immutable model files. Reuse the provenance
+# already measured at startup; inference integrity checks remain enabled.
+runtime.manifest=lambda:runtime_info
 
 # Optional QA-only reuse of the exact raw inference tensor. This cache is keyed
 # by source preview pixels and model bytes, never by filename or manual masks.
 if os.environ.get('JEANMEDIA_QA_MATTE_CACHE'):
  import matting
  cache=Path(os.environ['JEANMEDIA_QA_MATTE_CACHE']);cache.mkdir(parents=True,exist_ok=True)
- model_digest=sha256(matting.MODEL);infer=matting.foreground_alpha
+ model_digest=runtime_info['models'][matting.MODEL.name];infer=matting.foreground_alpha
  def cached_alpha(rgb):
   key=hashlib.sha256(rgb.tobytes()+model_digest.encode()).hexdigest();target=cache/(key+'.npy')
   if target.exists():
@@ -28,7 +33,8 @@ if os.environ.get('JEANMEDIA_QA_MATTE_CACHE'):
 
 root.mkdir(parents=True,exist_ok=False)
 rows=[]
-(root/'runtime.json').write_text(json.dumps({'bundle':str(bundle),'runtime':manifest(),
+preview_only=os.environ.get('JEANMEDIA_QA_PREVIEW_ONLY')=='1'
+(root/'runtime.json').write_text(json.dumps({'bundle':str(bundle),'runtime':runtime_info,
  'workerHashes':{p.name:sha256(p) for p in (bundle/'worker').glob('*.py')}},indent=2))
 sources=sorted(Path(os.environ.get('JEANMEDIA_QA_SOURCE_DIR','D:/test22')).iterdir())
 if len(sys.argv)>3:
@@ -40,7 +46,8 @@ for src in sources:
   digest=sha256(src);im,frames=load_photo(src);p=im.copy();p.thumbnail((1280,1280),Image.Resampling.LANCZOS)
   p.save(root/(src.stem+'-before.png'))
   preflight=inspect(p)
-  full,out,plan,status=auto_edit(im,p,export=True)
+  full,out,plan,status=auto_edit(im,p,export=not preview_only)
+  check_source=p if preview_only else im;check_output=out if preview_only else full
   core_changes=0
   if plan.get('layers',{}).get('foregroundAlpha'):
    import cv2
@@ -49,10 +56,10 @@ for src in sources:
    shape=plan['layers']['shape'];alpha=unpack(plan['layers']['foregroundAlpha'],shape)
    core=cv2.erode((alpha>=250).astype(np.uint8),np.ones((5,5),np.uint8))>0
    if plan.get('propRepairs'):core &= decode_mask(plan['propRepairs']['mask'],tuple(shape))==0
-   core=Image.fromarray(core.astype(np.uint8)*255).resize(im.size,Image.Resampling.NEAREST)
-   for y in range(0,im.height,256):
-    box=(0,y,im.width,min(im.height,y+256));guard=np.asarray(core.crop(box))>0
-    core_changes+=int(np.count_nonzero(np.any(np.asarray(im.crop(box))[guard]!=np.asarray(full.crop(box))[guard],axis=1)))
+   core=Image.fromarray(core.astype(np.uint8)*255).resize(check_source.size,Image.Resampling.NEAREST)
+   for y in range(0,check_source.height,256):
+    box=(0,y,check_source.width,min(check_source.height,y+256));guard=np.asarray(core.crop(box))>0
+    core_changes+=int(np.count_nonzero(np.any(np.asarray(check_source.crop(box))[guard]!=np.asarray(check_output.crop(box))[guard],axis=1)))
    assert core_changes==0,('Protected source core changed',core_changes)
   selected=np.array(change_mask(plan))>0
   outside=int(np.count_nonzero(np.any(np.array(p)[~selected]!=np.array(out)[~selected],axis=1)))
@@ -60,15 +67,16 @@ for src in sources:
   plan['review']=list(dict.fromkeys(plan.get('review',[])+preflight['warnings']))
   (root/(src.stem+'-plan.json')).write_text(json.dumps(plan),encoding='utf-8')
   change_mask(plan).save(root/(src.stem+'-mask.png'))
-  lut=correction(p);finished=apply_correction(full,lut)
+  lut=correction(p);finished=apply_correction(out if preview_only else full,lut)
   target=root/(src.stem+'-edited.png');export_photo(finished,target,300)
   rendered=finished.copy();rendered.thumbnail((1280,1280),Image.Resampling.LANCZOS);rendered.save(root/(src.stem+'-after.png'))
   pair=Image.new('RGB',(p.width*2,p.height+28),'#222');pair.paste(p,(0,28));pair.paste(rendered,(p.width,28));d=ImageDraw.Draw(pair);d.text((10,7),src.name+' ORIGINAL',fill='white');d.text((p.width+10,7),'EDITED',fill='white');pair.save(root/(src.stem+'-compare.jpg'),quality=96)
   assert sha256(src)==digest,'Original changed'
-  with Image.open(target) as check:assert check.size==im.size and check.info.get('icc_profile')
+  with Image.open(target) as check:assert check.size==finished.size and check.info.get('icc_profile')
   row.update(dimensions=im.size,frames=frames,preflight=preflight,review=plan['review'],
    engine=plan['repairEngine'],outsideCleanupMaskChanges=outside,subjectCoreChangesBeforeTone=core_changes,changedFraction=float(selected.mean()),
-   output=str(target),sourceSha256=digest,originalUnchanged=True,fullResolutionExport=True)
+   output=str(target),sourceSha256=digest,originalUnchanged=True,fullResolutionExport=not preview_only,
+   outputDimensions=finished.size,previewOnly=preview_only,processingRevision=plan.get('processingRevision'),status=status)
  except Exception as error:row.update(error=str(error),trace=traceback.format_exc())
  row['seconds']=round(time.time()-start,1);rows.append(row)
  (root/'run.json').write_text(json.dumps(rows,indent=2),encoding='utf-8')

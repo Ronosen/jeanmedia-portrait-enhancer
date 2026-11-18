@@ -50,13 +50,16 @@ def anchored_alpha(alpha,person,objects):
    if region.size and (region>.5).mean()<.10:raise ValueError('Needs Review · A person is missing from the internal subject mask.')
  return result
 
-def prepare(plan,rgb,alpha,probability,objects):
+def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
  from inpainting import removal_mask,frame_panels
  from studio import background_basis
  h,w=alpha.shape;yy,xx=np.mgrid[:h,:w]
  model=np.clip(background_basis(xx/max(1,w-1),yy/max(1,h-1))@np.asarray(plan['coefficients']),plan['low'],plan['high'])
  alpha=alpha.copy()
  model_alpha=alpha.copy();source_contact=np.zeros((h,w),bool);source_blend=np.zeros((h,w),np.float32)
+ from scene_objects import thin_supports,detached_clutter
+ metal=thin_supports(rgb,alpha,objects)
+ alpha[metal]=1
  if plan['layers'].get('support'):
   # A person-only matte can omit a white pedestal or supporting seat. Retain
   # independently confirmed support geometry in the extracted source layer.
@@ -67,7 +70,12 @@ def prepare(plan,rgb,alpha,probability,objects):
    count,parts,stats,_=cv2.connectedComponentsWithStats(support.astype(np.uint8))
    for part in range(1,count):
     region=parts==part
-    if (region&geometry).sum()>stats[part,cv2.CC_STAT_AREA]*.1:support[region]=False
+    if (region&geometry).sum()>stats[part,cv2.CC_STAT_AREA]*.1:
+     # A measured rectangle can describe one panel of a multi-panel seat.
+     # Keep an independently recovered bright source surface; a cast shadow
+     # on a light backdrop fails this positive-contrast evidence.
+     bright=rgb[region].mean(axis=1)-model[region].mean(axis=1)>25
+     if bright.mean()<.85:support[region]=False
    support |= geometry
   if support.any():
    light_backdrop=np.median(model.mean(axis=2))>140
@@ -98,6 +106,7 @@ def prepare(plan,rgb,alpha,probability,objects):
   source_contact,source_blend=support_source_masks(rgb,model,model_alpha,support,props)
   alpha=np.maximum(alpha,source_blend)
   alpha[source_contact]=1
+ source_contact |= metal;source_blend[metal]=1
  # Soft floor reflections are background, not part of the extracted person.
  # Keep the measured edge beside opaque people/supports; discard remote haze.
  distance=cv2.distanceTransform((alpha<.5).astype(np.uint8),cv2.DIST_L2,3)
@@ -129,6 +138,8 @@ def prepare(plan,rgb,alpha,probability,objects):
  # slivers then contaminated the reconstruction donors. Compositing the source
  # foreground lets us remove these damaged background pixels right to the matte.
  selected |= (np.max(np.abs(rgb.astype(float)-model),axis=2)>38)&~protected&wall
+ orphan,orphan_count=detached_clutter(raw_alpha,protected,objects,plan['floor'],rgb,model)
+ selected |= orphan
  from background_objects import edge_clutter
  clutter=edge_clutter(rgb,protected,plan['floor'],selected)
  # A wall-removal component may continue into a legitimate floor reflection.
@@ -138,6 +149,7 @@ def prepare(plan,rgb,alpha,probability,objects):
  # Equipment polygons may extend below the estimated wall/floor horizon.
  # Keep their complete measured footprint selected, including its bottom tip.
  clutter |= ((equipment>0)|panels)&~protected
+ clutter |= orphan
  selected |= clutter
  layers=plan['layers'];layers['foregroundAlpha']=pack(np.rint(alpha*255).astype(np.uint8))
  layers['person']=layers['foregroundAlpha'];layers['protected']=pack(protected.astype(np.uint8)*255)
@@ -146,8 +158,11 @@ def prepare(plan,rgb,alpha,probability,objects):
  layers['wallSurface']=pack(wall.astype(np.uint8)*255)
  layers['sourceContact']=pack(source_contact.astype(np.uint8)*255)
  layers['sourceContactBlend']=pack(np.rint(source_blend*255).astype(np.uint8))
+ layers['detachedClutter']=pack(orphan.astype(np.uint8)*255)
+ layers['thinSupport']=pack(metal.astype(np.uint8)*255)
+ plan['sceneObjects']={'detachedClutterCount':orphan_count,'thinSupportPixels':int(metal.sum())}
  plan['surfaceContour']=contour
- plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v2','backdropMethod':'local-evidence-v3'}
+ plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v2','backdropMethod':'local-evidence-v4'}
  if selected.mean()>.04:
   message='Large background reconstruction needs review.'
   if message not in plan.setdefault('review',[]):plan['review'].append(message)
@@ -193,7 +208,7 @@ def render(source,selected,plan):
   plate.update(floorRepairs=plan['floorRepairs'],floor=plan['floor'],adaptiveRevision=plan.get('adaptiveRevision',3))
  progress('Removing subjects from background plate',60)
  background=repair(source,holes,np.zeros(shape,bool),plate)
- if plan.get('separation',{}).get('backdropMethod')=='local-evidence-v3':
+ if plan.get('separation',{}).get('backdropMethod') in ('local-evidence-v3','local-evidence-v4'):
   wall=unpack(plan['layers']['wallSurface'],shape)>0
   weight=np.clip(cv2.distanceTransform(wall.astype(np.uint8),cv2.DIST_L2,3)/max(4,shape[0]*.02),0,1)
   clutter=unpack(plan['layers']['clutter'],shape)>0

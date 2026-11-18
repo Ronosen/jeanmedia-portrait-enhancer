@@ -149,6 +149,32 @@ def wall_surface(rgb, protected, floor, analysis):
     return wall, {'method':'visible-contour-v1','detected':bool(accepted),'segments':accepted,'groundRows':ground}
 
 
+def texture_finish(gray,safe):
+    """Bounded local texture correction; do not flatten material/lighting levels."""
+    h,w=gray.shape;valid=safe.astype(np.float32);sigma=max(6,min(h,w)*.025)
+    gx=cv2.Sobel(gray,cv2.CV_32F,1,0,ksize=3);gy=cv2.Sobel(gray,cv2.CV_32F,0,1,ksize=3)
+    horizontal=((np.abs(gy)>16)&(np.abs(gy)>np.abs(gx)*2)&safe).astype(np.uint8)*255
+    lines=cv2.HoughLinesP(horizontal,1,np.pi/180,max(20,w//16),minLineLength=max(35,w*.15),maxLineGap=12)
+    boundary=np.zeros((h,w),np.uint8)
+    if lines is not None:
+        for x0,y0,x1,y1 in lines[:,0]:
+            if abs(y1-y0)>max(2,abs(x1-x0)*.2):continue
+            cv2.line(boundary,(int(x0),int(y0)),(int(x1),int(y1)),1,max(5,round(sigma*3)))
+    safe=safe&(boundary==0);valid=safe.astype(np.float32)
+    small=cv2.GaussianBlur(valid,(0,0),1.2)
+    low=cv2.GaussianBlur(gray*valid,(0,0),1.2)/np.maximum(small,.001)
+    norm=cv2.GaussianBlur(valid,(0,0),sigma)
+    broad=cv2.GaussianBlur(gray*valid,(0,0),sigma)/np.maximum(norm,.001)
+    residual=broad-low
+    noise=np.abs(gray-low)[safe]
+    threshold=max(2,float(np.median(noise))*2) if len(noise) else 2
+    strength=np.clip((np.abs(residual)-threshold)/max(3,threshold*2),0,1)*.8
+    weight=np.clip(cv2.distanceTransform(safe.astype(np.uint8),cv2.DIST_L2,3)/4,0,1)
+    delta=np.clip(residual*strength,-12,12)*weight
+    delta[np.abs(delta)<.75]=0
+    return delta.astype(np.float32),float(strength.max()),float(np.max(np.abs(residual[safe]))) if safe.any() else 0.
+
+
 def local_finish(gray, safe):
     """Remove measured ridges while retaining broad illumination and grain."""
     h, w = gray.shape
