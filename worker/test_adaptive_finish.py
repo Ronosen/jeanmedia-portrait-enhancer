@@ -10,6 +10,47 @@ from support_geometry import box_seats
 
 
 class AdaptiveFinishTests(unittest.TestCase):
+    def test_dark_saturated_backdrop_does_not_receive_neutral_black_fold_treatment(self):
+        import copy
+        rgb=np.full((180,140,3),(15,20,150),np.uint8);empty=np.zeros((180,140),np.uint8)
+        plan={'adaptiveRevision':3,'separation':{'version':1},'floor':.8,
+              'layers':{'shape':[180,140],'protected':pack(empty),'backdrop':pack(empty)}}
+        updated=copy.deepcopy(plan);updated['separation']['backdropMethod']='multiscale-v1'
+        expected=finish(Image.fromarray(rgb),plan);actual=finish(Image.fromarray(rgb),updated)
+        self.assertEqual(actual.tobytes(),expected.tobytes());self.assertEqual(updated['backdropFinish']['foldFinish'],0)
+
+    def test_broad_lower_black_backdrop_folds_are_removed_without_touching_floor(self):
+        h,w=480,320;yy,xx=np.mgrid[:h,:w];rng=np.random.default_rng(9)
+        light=26+8*np.exp(-((xx-w*.5)/(w*.4))**2)
+        folds=12*np.sin(xx/17)*np.clip((yy/h-.58)/.16,0,1)
+        rgb=np.repeat((light+folds+rng.normal(0,.8,(h,w)))[...,None],3,axis=2)
+        rgb=np.rint(np.clip(rgb,0,255)).astype(np.uint8);row=round(h*.86)
+        rgb[row:]=(45,49,55);body=np.zeros((h,w),np.uint8);body[80:450,135:185]=255;rgb[body>0]=(150,80,45)
+        plan={'adaptiveRevision':3,'separation':{'version':1,'backdropMethod':'multiscale-v1'},'floor':.86,
+              'layers':{'shape':[h,w],'protected':pack(body),'backdrop':pack(np.zeros_like(body))}}
+        out=np.asarray(finish(Image.fromarray(rgb),plan))
+        np.testing.assert_array_equal(out[body>0],rgb[body>0]);np.testing.assert_array_equal(out[row:],rgb[row:])
+        # The last wall rows used to be excluded by the floor feather, leaving
+        # the most visible folds untouched. Measure both broad ridges and grain.
+        band=np.s_[row-18:row-4,20:110]
+        self.assertLess(out[band][:,:,0].std(),rgb[band][:,:,0].std()*.3)
+        original_grain=rgb[200:250,20:110,0].astype(float)-cv2.GaussianBlur(rgb[200:250,20:110,0].astype(float),(0,0),1)
+        final_grain=out[200:250,20:110,0].astype(float)-cv2.GaussianBlur(out[200:250,20:110,0].astype(float),(0,0),1)
+        self.assertGreater(final_grain.std(),original_grain.std()*.6)
+        self.assertEqual(finish(Image.fromarray(rgb),plan).tobytes(),out.tobytes())
+
+    def test_low_contrast_dark_floor_junction_is_not_the_fixed_eighty_percent_fallback(self):
+        from studio import floor_boundary
+        rgb=np.full((600,400,3),20,np.uint8);rgb[516:]=28
+        subject=np.zeros((600,400),bool);subject[100:575,170:230]=True
+        self.assertAlmostEqual(floor_boundary(rgb,subject),.86,delta=.025)
+
+    def test_gradual_dark_illumination_does_not_create_a_new_material_edge(self):
+        from studio import floor_boundary
+        rgb=np.repeat(np.repeat(np.linspace(15,55,600)[:,None,None],400,axis=1),3,axis=2).astype(np.uint8)
+        subject=np.zeros((600,400),bool);subject[100:575,170:230]=True
+        self.assertEqual(floor_boundary(rgb,subject),.8)
+
     def test_seamless_white_paper_has_no_artificial_horizon_band(self):
         rgb=np.full((180,140,3),210,np.uint8);body=np.zeros((180,140),np.uint8);body[35:135,45:95]=255
         rgb[body>0]=(120,60,40)

@@ -47,6 +47,12 @@ def finish(image,plan):
                         plan['layers']['edgeProtected']=pack(refined.astype(np.uint8)*255)
         safe=~protected
         floor_row=round(plan['floor']*h)
+        rgb=np.asarray(image.resize((w,h),Image.Resampling.LANCZOS))
+        gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY).astype(np.float32)
+        wall=safe&(np.arange(h)[:,None]<floor_row)
+        wall_colour=np.median(rgb[wall],axis=0) if wall.any() else np.array([255]*3)
+        broad_folds=(plan.get('separation',{}).get('backdropMethod')=='multiscale-v1'
+                     and wall.any() and wall_colour.mean()<65 and np.ptp(wall_colour)<35)
         across_floor=False
         if plan.get('separation') and floor_row<h-20:
             check=np.asarray(image.resize((w,h),Image.Resampling.LANCZOS))
@@ -55,17 +61,16 @@ def finish(image,plan):
             if len(wall)>w and len(ground)>w:
                 wc=np.median(wall,axis=0);fc=np.median(ground,axis=0)
                 across_floor=np.ptp(wc)<35 and wc.mean()>160 and np.ptp(fc)<40 and np.max(np.abs(wc-fc))<45
-        if not across_floor:safe[max(0,floor_row-8):]=False
+        if not across_floor:safe[max(0,floor_row if broad_folds else floor_row-8):]=False
         distance=cv2.distanceTransform(safe.astype(np.uint8),cv2.DIST_L2,3)
         weight=np.clip((distance-5)/20,0,1)
         edge_weight=np.clip(distance/2,0,1)
         if plan.get('separation') and not across_floor:
-            edge_weight *= np.clip((floor_row-np.arange(h)[:,None])/max(8,h*.025),0,1)
+            fade=max(2,h*.002) if broad_folds else max(8,h*.025)
+            edge_weight *= np.clip((floor_row-np.arange(h)[:,None])/fade,0,1)
         if plan.get('separation'):weight=edge_weight
-        rgb=np.asarray(image.resize((w,h),Image.Resampling.LANCZOS))
-        gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY).astype(np.float32)
         valid=safe.astype(np.float32)
-        sigma=max(12,min(h,w)*.035)
+        sigma=max(12,min(h,w)*(.10 if broad_folds else .035))
         norm=cv2.GaussianBlur(valid,(0,0),sigma)
         broad=cv2.GaussianBlur(gray*valid,(0,0),sigma)/np.maximum(norm,.00001)
         low=cv2.GaussianBlur(gray,(0,0),1.2)
@@ -74,9 +79,9 @@ def finish(image,plan):
         # A nearly clean background is left alone. Higher variation receives a
         # stronger local correction; broad lighting gradients remain intact.
         variation=float(np.percentile(samples,90)) if len(samples) else 0
-        strength=float(np.clip(variation/3,.25,.80)) if variation>=.6 else 0.0
-        delta=np.clip(residual*strength,-24,24)*weight
-        pop='none';scale=4
+        strength=float(np.clip(variation/3,.25,.97 if broad_folds else .80)) if variation>=.6 else 0.0
+        delta=np.clip(residual*strength,-60 if broad_folds else -24,60 if broad_folds else 24)*weight
+        pop='none';scale=2 if broad_folds else 4
         if plan.get('adaptiveRevision',0)>=3 and not plan.get('partialCleanup') and np.any(weight>.9):
             colour=np.median(rgb[weight>.9],axis=0)
             if np.ptp(colour)<35 and colour.mean()>160:
@@ -88,13 +93,14 @@ def finish(image,plan):
                 # A broad protected-edge fade left a bright silhouette around
                 # people. Carry background darkening right to the protected
                 # edge, using only a two-pixel blend outside the foreground.
-                delta-=np.clip(gray*.32,0,18)*edge_weight;pop='black'
+                cleaned=np.clip(gray+delta,0,255) if broad_folds else gray
+                delta-=np.clip(cleaned*.32,0,18)*edge_weight;pop='black'
             elif np.ptp(colour)>40:pop='colour'
         delta=np.clip(delta,-60 if scale==2 else -30,60 if scale==2 else 30)
         delta[np.abs(delta)<.75]=0
         encoded=np.rint(delta*scale+128).astype(np.uint8)
         mask=((delta!=0)|((weight>0)&(pop=='colour'))).astype(np.uint8)*255
-        cached={'version':1,'edgeFinish':1,'scale':scale,'shape':shape,'delta':pack(encoded),'mask':pack(mask),
+        cached={'version':1,'edgeFinish':1,'foldFinish':1 if broad_folds else 0,'scale':scale,'shape':shape,'delta':pack(encoded),'mask':pack(mask),
                 'strength':strength,'variation':variation,'pop':pop,'action':'clean' if mask.any() else 'preserve'}
         plan['backdropFinish']=cached
     if cached.get('version')!=1 or cached.get('shape')!=shape:raise ValueError('Invalid saved backdrop finish')

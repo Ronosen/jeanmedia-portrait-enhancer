@@ -241,6 +241,13 @@
 
 Evidence and per-image remaining inspection points: `qa/folder-v6-final/REVIEW.md`.
 
+## Dark backdrop fold regression — 2026-11-18
+- [x] Locate weak dark-wall/floor junctions instead of stopping at a fixed 80% row.
+- [x] Remove broad lower-backdrop folds with source foreground and floor protection.
+- [x] Preserve backdrop grain and gradual lighting instead of painting a solid colour.
+- [x] Keep saturated backdrops and cached older edits compatible.
+- [x] Allow Auto Edit reruns for older results (processing revision 8).
+
 ## Open-source references
 - SAM 2: https://github.com/facebookresearch/sam2
 - rembg: https://github.com/danielgatis/rembg

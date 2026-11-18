@@ -62,3 +62,20 @@ isolated audit workers prevent one failed photo from corrupting later results.
 Visual acceptance remains open for fine fringes, source scuffs, ambiguous
 supports and irrecoverable clipped highlights. Passing preservation checks is
 not a promise of perfect reconstruction or photographic fidelity at every edge.
+
+## Dark backdrop folds — revision 8
+
+The floor fallback previously stopped cleanup at 80% of the frame in a dark,
+low-contrast scene, leaving the lowest cloth folds untouched. A wider, sustained
+brightness transition now locates a subtle dark-wall/dark-floor junction while
+rejecting ordinary gradual lighting gradients.
+
+New neutral-dark backdrop plans use a larger normalized smoothing scale and
+stronger fold suppression up to the floor boundary. Source grain and broad
+illumination remain; darkening uses the cleaned luminance so it does not turn
+bright fold ridges into inverted dark stripes. Foreground and floor protection
+remain enforced. Saturated backdrops retain the previous finishing treatment.
+
+Finishing is cached in the saved plan. Existing plans replay unchanged; Auto
+Edit is available for results made with older processing revisions. Local
+regression comparisons are in `qa/backdrop-fold-v8`.

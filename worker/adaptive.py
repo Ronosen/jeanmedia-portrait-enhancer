@@ -14,7 +14,7 @@ def auto_edit(image, preview, export=False):
     image, preview, plan = clean_studio(
         image, preview, export=export, floor_mode="patch")
     floor = plan["floorRepairs"]
-    plan['processingRevision']=7
+    plan['processingRevision']=8
     plan["assessment"] = {
         "version": 1,
         "floorAction": "repair" if floor["count"] else "preserve",

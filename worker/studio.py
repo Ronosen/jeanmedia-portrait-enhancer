@@ -36,6 +36,23 @@ def floor_boundary(rgb, protected):
         if len(people_rows) and boundary>.85 and boundary>max(.80,people_rows[-1]/height-.05):
             return max(.70,min(.85,people_rows[-1]/height-.10))
         return .86 if boundary>.92 else boundary
+    wall_colour=np.median(medians[round(height*.3):round(height*.65)],axis=0)
+    if fallback<1 and wall_colour.mean()<65 and np.ptp(wall_colour)<35:
+        # Black cloth and a dark floor can meet below the old fixed fallback
+        # without an eight-pixel contrast spike. Find a sustained material rise
+        # at a wider scale; reject ordinary gradual illumination gradients.
+        gray=medians@np.array([.299,.587,.114])
+        gray=cv2.GaussianBlur(gray.astype(np.float32),(1,0),0,sigmaY=max(2,height*.003)).ravel()
+        radius=max(5,round(height*.0125));lo=round(height*.68);hi=round(height*.90)
+        positions=np.arange(lo,hi)
+        rise=gray[positions+radius]-gray[positions-radius]
+        peak=int(np.argmax(rise));level=float(rise[peak])
+        typical=float(np.median(np.abs(rise)))
+        centre=int(positions[peak])
+        above=np.median(gray[centre-3*radius:centre-radius])
+        below=np.median(gray[centre+radius:centre+3*radius])
+        if level>max(5,typical*3) and below-above>5:
+            return (centre-radius)/height
     return fallback
 
 
