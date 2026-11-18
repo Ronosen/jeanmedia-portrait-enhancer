@@ -212,7 +212,7 @@ def refine_edges(rgb, protected, probability, foreground):
 
 
 def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
-                     foreground_probability=None, floor_mode=None, equipment_plan=None):
+                     foreground_probability=None, floor_mode=None, equipment_plan=None, floor_probability=None):
     from runtime import progress
     progress("Protecting subject", 45)
     detailed = foreground_probability is not None if plan is None else plan.get("version") in (2, 3)
@@ -221,7 +221,8 @@ def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
     person, protected, kept = initial_protection(probability, objects,
                                                 foreground_probability if detailed else None)
     from scene_evidence import floor_evidence
-    floor, floor_analysis = floor_evidence(rgb, person)
+    floor_witness=(floor_probability if floor_probability is not None else probability)>.5
+    floor, floor_analysis = floor_evidence(rgb, floor_witness)
     if plan is None:
         coefficients, low, high, model = fit_backdrop(rgb, protected, floor)
         plan = {"version": 3 if detailed else 1, "coefficients": coefficients.tolist(),
@@ -378,6 +379,7 @@ def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
         return base64.b64encode(cv2.imencode(".png", mask)[1]).decode("ascii")
     plan["layers"] = {"shape": list(protected.shape),
                       "person": encoded(person.astype(np.uint8)*255),
+                      "floorWitness": encoded(floor_witness.astype(np.uint8)*255),
                       "source": encoded(rgb),
                       "support": encoded(confirmed_support.astype(np.uint8)*255),
                       "protected": encoded(protected.astype(np.uint8)*255),
@@ -482,6 +484,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
     rgb = np.asarray(preview)
     progress("Finding people", 15)
     probability = person_probability(rgb)
+    floor_probability=probability.copy()
     progress("Refining foreground", 28)
     detailed_foreground = foreground_probability(rgb) if plan is None or plan.get("version") in (2, 3) else None
     if plan is None:
@@ -512,7 +515,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
         probability,detailed_foreground,group_info=protect_group(pixels,probability,detailed_foreground,objects)
     try:
         plan, alpha, kept = prepare_backdrop(pixels, probability, objects, clean_floor, plan,
-                                            detailed_foreground, floor_mode, equipment)
+                                            detailed_foreground, floor_mode, equipment, floor_probability)
     except ValueError as error:
         ambiguous_support="supporting seat could not be protected" in str(error)
         if plan is not None or floor_mode is None or not ("plain, consistent studio backdrop" in str(error) or ambiguous_support):

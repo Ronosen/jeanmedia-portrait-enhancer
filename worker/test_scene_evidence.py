@@ -2,11 +2,39 @@ import unittest
 import cv2
 import numpy as np
 from PIL import Image
-from scene_evidence import floor_evidence
+from scene_evidence import floor_evidence, wall_surface
 from backdrop_finish import finish, pack, unpack
 
 
 class SceneEvidenceTests(unittest.TestCase):
+    def test_sloping_uneven_join_is_preserved_instead_of_a_horizontal_cutoff(self):
+        h,w=400,280;yy,xx=np.mgrid[:h,:w]
+        for direction in (-1,1):
+            with self.subTest(direction=direction):
+                edge=np.rint(285+direction*(np.arange(w)-w/2)*.23+6*np.sin(np.arange(w)/35)).astype(int)
+                floor=yy>=edge[None,:]
+                rgb=np.full((h,w,3),30,np.uint8);rgb[floor]=(65,75,85)
+                subject=np.zeros((h,w),bool);subject[40:380,120:160]=True;rgb[subject]=(140,70,40)
+                wall,contour=wall_surface(rgb,subject,.71,{'detected':True})
+                self.assertTrue(contour['detected'])
+                self.assertTrue(wall[30].all())
+                # No uncleaned vertical strips above an occluded join, and no
+                # stair-step cutoff where neighbouring detector strips meet.
+                last_wall=wall.sum(axis=0)
+                self.assertLessEqual(np.abs(np.diff(last_wall)).max(),1)
+                for x0,x1,row in contour['segments']:
+                    self.assertLess(abs(row-np.median(edge[x0:x1])),4)
+                self.assertFalse(wall[floor].any())
+                # A horizontal .71 cutoff would include healthy floor at one
+                # side and leave a dark wall strip at the other.
+                plan=self.plan(subject,.71);plan['separation']['backdropMethod']='local-evidence-v3'
+                plan['layers']['wallSurface']=pack(wall.astype(np.uint8)*255)
+                out=np.asarray(finish(Image.fromarray(rgb),plan))
+                join=np.abs(yy-edge[None,:])<=4
+                np.testing.assert_array_equal(out[join],rgb[join])
+                np.testing.assert_array_equal(out[floor],rgb[floor])
+                np.testing.assert_array_equal(out[subject],rgb[subject])
+
     def test_floor_follows_material_at_different_positions(self):
         h,w=400,240
         for row in (132,204,284,356):

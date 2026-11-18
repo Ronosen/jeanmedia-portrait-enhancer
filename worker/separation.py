@@ -85,6 +85,21 @@ def prepare(plan,rgb,alpha,probability,objects):
  alpha[(yy>=round(plan['floor']*h))&(alpha<.5)&(distance>4)]=0
  # Reconstruction may run right up to the true matte, never a padded silhouette.
  protected=alpha>.02
+ from scene_evidence import wall_surface
+ if 'floorAnalysis' in plan:
+  witness=unpack(plan['layers']['floorWitness'],[h,w])>0 if plan['layers'].get('floorWitness') else protected
+  wall,contour=wall_surface(rgb,witness,plan['floor'],plan['floorAnalysis'])
+ else:
+  wall=np.broadcast_to(yy<round(plan['floor']*h),(h,w)).copy();contour={'method':'legacy-row'}
+ if plan.get('floorAnalysis',{}).get('detected') and plan.get('floorRepairs'):
+  from floor import decode_mask
+  rows=contour.get('groundRows',[])
+  ground=(yy>=np.asarray(rows)[None,:]) if len(rows)==w else np.zeros((h,w),bool)
+  patches=plan['floorRepairs']
+  for name in ('defects','extension'):
+   allowed=(decode_mask(patches[name],(h,w))>0)&ground&~protected
+   patches[name]=pack(allowed.astype(np.uint8)*255)
+  patches['count']=int(cv2.connectedComponents((decode_mask(patches['defects'],(h,w))>0).astype(np.uint8))[0]-1)+int((decode_mask(patches['extension'],(h,w))>0).any())
  panels=frame_panels(rgb,probability,model,objects,plan['floor'])
  equipment=np.zeros(alpha.shape,np.uint8)
  if plan.get('equipmentPlan'):
@@ -94,13 +109,13 @@ def prepare(plan,rgb,alpha,probability,objects):
  # The old exclusion margin left wall/softbox slivers beside a person. Those
  # slivers then contaminated the reconstruction donors. Compositing the source
  # foreground lets us remove these damaged background pixels right to the matte.
- selected |= (np.max(np.abs(rgb.astype(float)-model),axis=2)>38)&~protected&(yy<round(plan['floor']*h))
+ selected |= (np.max(np.abs(rgb.astype(float)-model),axis=2)>38)&~protected&wall
  from background_objects import edge_clutter
  clutter=edge_clutter(rgb,protected,plan['floor'],selected)
  # A wall-removal component may continue into a legitimate floor reflection.
  # Below the horizon only explicit clutter and the floor repair planner may
  # select pixels; healthy floor is never part of a generic backdrop repair.
- selected[round(plan['floor']*h):]=False
+ selected &= wall
  # Equipment polygons may extend below the estimated wall/floor horizon.
  # Keep their complete measured footprint selected, including its bottom tip.
  clutter |= ((equipment>0)|panels)&~protected
@@ -109,7 +124,9 @@ def prepare(plan,rgb,alpha,probability,objects):
  layers['person']=layers['foregroundAlpha'];layers['protected']=pack(protected.astype(np.uint8)*255)
  layers['edgeProtected']=layers['protected'];layers['backdrop']=pack(selected.astype(np.uint8)*255)
  layers['clutter']=pack(clutter.astype(np.uint8)*255)
- plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v2','backdropMethod':'local-evidence-v2'}
+ layers['wallSurface']=pack(wall.astype(np.uint8)*255)
+ plan['surfaceContour']=contour
+ plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v2','backdropMethod':'local-evidence-v3'}
  if selected.mean()>.04:
   message='Large background reconstruction needs review.'
   if message not in plan.setdefault('review',[]):plan['review'].append(message)
@@ -155,6 +172,14 @@ def render(source,selected,plan):
   plate.update(floorRepairs=plan['floorRepairs'],floor=plan['floor'],adaptiveRevision=plan.get('adaptiveRevision',3))
  progress('Removing subjects from background plate',60)
  background=repair(source,holes,np.zeros(shape,bool),plate)
+ if plan.get('separation',{}).get('backdropMethod')=='local-evidence-v3':
+  wall=unpack(plan['layers']['wallSurface'],shape)>0
+  weight=np.clip(cv2.distanceTransform(wall.astype(np.uint8),cv2.DIST_L2,3)/max(4,shape[0]*.02),0,1)
+  clutter=unpack(plan['layers']['clutter'],shape)>0
+  weight[foreground|clutter]=1
+  if plan.get('floorRepairs'):weight[decode_mask(plan['floorRepairs']['extension'],tuple(shape))>0]=1
+  blend=Image.fromarray(np.rint(weight*255).astype(np.uint8)).resize(source.size,Image.Resampling.BILINEAR)
+  background=Image.composite(background,source,blend)
  progress('Cleaning separated background',78)
  protected=matte>3
  if plan.get('floorRepairs') and source_floor:

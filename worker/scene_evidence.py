@@ -5,20 +5,22 @@ import numpy as np
 
 def floor_evidence(rgb, protected):
     h, w = protected.shape
+    appearance=cv2.cvtColor(rgb,cv2.COLOR_RGB2LAB)
     radius = max(3, round(h * .0125))
     # Independent columns prevent a chair, softbox or one dark corner from
     # becoming a full-width floor. Missing foreground samples are interpolated.
-    profiles = []; observed = []
+    profiles = []; observed = []; centres=[]
     for columns in np.array_split(np.arange(w), 8):
         values = np.full((h, 3), np.nan)
         for y in range(h):
             valid = ~protected[y, columns]
             if valid.sum() >= max(3, len(columns) * .4):
-                values[y] = np.median(rgb[y, columns[valid]], axis=0)
+                values[y] = np.median(appearance[y, columns[valid]], axis=0)
         known = np.flatnonzero(np.isfinite(values[:, 0]))
         if len(known) < h * .5:
             continue
         observed.append(np.isfinite(values[:, 0]))
+        centres.append(float(columns.mean()))
         for c in range(3):
             values[:, c] = np.interp(np.arange(h), known, values[known, c])
         profiles.append(cv2.GaussianBlur(values.astype(np.float32), (1, 0), 0, sigmaY=max(1, radius / 4)))
@@ -38,13 +40,18 @@ def floor_evidence(rgb, protected):
     magnitude = np.max(np.abs(jump), axis=2)
     votes = (excess > 4) & (magnitude > 5)
     observed = np.array(observed)
-    votes &= observed[:, rows-radius] & observed[:, rows+radius]
-    agreement = votes.mean(axis=0)
-    score = np.median(np.where(votes, excess, 0), axis=0)
+    visible=observed[:, rows-radius] & observed[:, rows+radius]
+    votes &= visible
+    agreement=votes.sum(axis=0)/np.maximum(1,visible.sum(axis=0))
+    score=np.sum(np.where(votes,excess,0),axis=0)/np.maximum(1,votes.sum(axis=0))
+    # Hidden subjects/props are missing evidence, not votes against the join.
+    # Require separated visible witnesses so one object cannot set the horizon.
+    centres=np.array(centres)[:,None]
+    span=np.max(np.where(votes,centres,-w),axis=0)-np.min(np.where(votes,centres,w*2),axis=0)
     people = np.flatnonzero(protected.any(axis=1))
     # Exclude overhead wallpaper/rail transitions using this subject's extent,
     # rather than an assumed percentage of the photograph.
-    eligible = agreement >= .6
+    eligible = (agreement >= .6)&(votes.sum(axis=0)>=2)&(span>w*.35)
     if len(people):
         eligible &= rows > np.percentile(np.nonzero(protected)[0], 10)
     candidates = np.flatnonzero(eligible & (score >= 4))
@@ -61,6 +68,74 @@ def floor_evidence(rgb, protected):
     result.update(detected=True, confidence=float(agreement[best]), row=row,
                   contrast=float(np.median(magnitude[:, best])))
     return row / h, result
+
+
+def wall_surface(rgb, protected, floor, analysis):
+    """Track the visible join; a scalar horizon is only a search seed.
+
+    Leave uncertain and occluded columns out of wall correction rather than
+    extending one measured height across the photograph.
+    """
+    h,w=protected.shape
+    appearance=cv2.cvtColor(rgb,cv2.COLOR_RGB2LAB)
+    wall=np.ones((h,w),bool)
+    if not analysis.get('detected'):
+        return wall, {'method':'visible-contour-v1','detected':False}
+    radius=max(2,round(h*.006));seed=round(floor*h)
+    reach=max(radius*5,round(h*.10));yy=np.arange(h)
+    positions=np.arange(max(3*radius,seed-reach),min(h-3*radius,seed+reach))
+    wall[:]=False
+    if not len(positions):return wall, {'method':'visible-contour-v1','detected':False}
+    measured=[]
+    reference=~protected
+    above=appearance[max(0,seed-6*radius):max(1,seed-3*radius)][reference[max(0,seed-6*radius):max(1,seed-3*radius)]]
+    below=appearance[min(h,seed+3*radius):min(h,seed+6*radius)][reference[min(h,seed+3*radius):min(h,seed+6*radius)]]
+    direction=np.median(below,axis=0)-np.median(above,axis=0) if len(above) and len(below) else np.zeros(3)
+    direction=direction/max(1,float(np.linalg.norm(direction)))
+    # Narrow strips follow local slopes and folds without allowing subject
+    # pixels to vote. No interpolation is used as boundary evidence.
+    for columns in np.array_split(np.arange(w),max(8,min(48,w//6))):
+        valid=~protected[:,columns]
+        observed=valid.sum(axis=1)>=max(2,len(columns)*.5)
+        profile=np.zeros((h,3),np.float32)
+        for row in np.flatnonzero(observed):
+            profile[row]=np.median(appearance[row,columns[valid[row]]],axis=0)
+        known=np.flatnonzero(observed)
+        if len(known)<h*.1:continue
+        for c in range(3):profile[:,c]=np.interp(yy,known,profile[known,c])
+        profile=cv2.GaussianBlur(profile,(1,0),0,sigmaY=max(1,radius/3))
+        jump=profile[positions+radius]-profile[positions-radius]
+        slope=(profile[positions-radius]-profile[positions-3*radius]+profile[positions+3*radius]-profile[positions+radius])/2
+        score=np.max(np.abs(jump-slope),axis=1)
+        usable=observed[positions-radius]&observed[positions+radius]&(np.max(np.abs(jump),axis=1)>3)
+        if np.linalg.norm(direction)>.5:
+            usable &= (jump@direction)>np.linalg.norm(jump,axis=1)*.5
+        score[~usable]=0
+        # Follow the same material change, not a stronger fold ridge or floor
+        # scratch elsewhere in the search neighbourhood.
+        rank=score/(1+np.abs(positions-seed)/max(1,reach*.25))
+        best=int(np.argmax(rank))
+        if score[best]<3:continue
+        row=int(positions[best]);guard=max(3,radius*2)
+        wall[:max(0,row-guard),columns]=True
+        measured.append([int(columns[0]),int(columns[-1])+1,row])
+    accepted=[];wall[:]=False
+    for i,segment in enumerate(measured):
+        neighbours=np.array([s[2] for s in measured[max(0,i-3):i+4]])
+        middle=float(np.median(neighbours));spread=float(np.median(np.abs(neighbours-middle)))
+        if abs(segment[2]-middle)>max(radius*6,spread*3):continue
+        accepted.append(segment)
+    if accepted:
+        centres=np.array([(s[0]+s[1]-1)/2 for s in accepted])
+        heights=np.array([s[2] for s in accepted],np.float32)
+        # Continue measured geometry across hidden subjects/equipment, keeping
+        # one continuous edge rather than a staircase of strip boundaries.
+        curve=np.interp(np.arange(w),centres,heights).astype(np.float32)
+        curve=cv2.GaussianBlur(curve[None,:],(0,1),max(2,w/48)).ravel()
+        wall=np.arange(h)[:,None] < (curve[None,:]-max(3,radius*2))
+        ground=np.rint(curve+max(3,radius*2)).astype(int).tolist()
+    else:ground=[]
+    return wall, {'method':'visible-contour-v1','detected':bool(accepted),'segments':accepted,'groundRows':ground}
 
 
 def local_finish(gray, safe):

@@ -103,3 +103,30 @@ in `qa/adaptive-v9-verified`. These measurements do not guarantee that every
 subtle junction is detectable: ambiguous floor repair can be withheld, and
 other equipment/floor-edge detectors still have geometric priors. Visual
 acceptance of fine edges and reconstruction remains necessary.
+
+## Preserve the source join — revision 10
+
+Revision 9 still used its measured scalar floor height as a horizontal cutoff.
+That can introduce a false straight edge where the photographed cloth meets
+the floor at different heights. New plans track locally visible transitions
+in narrow strips and save the measured segments as `surfaceContour` and the
+wall region as `layers.wallSurface`. A continuous contour follows neighbouring
+measurements across hidden subjects/equipment, rejects isolated fold/scratch
+peaks, and blends the repair inside the wall. A guard retains the original
+visible join.
+
+Generic wall reconstruction and finishing use that wall mask; floor patch
+masks are restricted to confirmed ground below the local contour. Explicit
+equipment removal may still cross the join. Older saved plans retain their
+recorded rendering. Regression tests cover opposite slopes with uneven edges
+and verify source junction, floor and subject preservation. Local full-photo
+checks are in `qa/contour-v10-witness-regressions` and
+`qa/contour-v10-witness-9044`. The reported graduation photo is a QA case only;
+no filename, source coordinates or per-image exceptions enter the worker.
+
+The floor witness uses the independent human segmentation mask, rather than
+salient floor reflections or shadow haze in the extraction matte. Perceptual
+colour transitions distinguish dark floor material from dark cloth. Consensus
+counts only visible witnesses with spatial separation; occluded columns do not
+vote against the boundary. The extraction matte still controls compositing and
+subject protection.

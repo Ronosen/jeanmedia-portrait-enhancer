@@ -30,7 +30,7 @@ root.mkdir(parents=True,exist_ok=False)
 rows=[]
 (root/'runtime.json').write_text(json.dumps({'bundle':str(bundle),'runtime':manifest(),
  'workerHashes':{p.name:sha256(p) for p in (bundle/'worker').glob('*.py')}},indent=2))
-sources=sorted(Path('D:/test22').iterdir())
+sources=sorted(Path(os.environ.get('JEANMEDIA_QA_SOURCE_DIR','D:/test22')).iterdir())
 if len(sys.argv)>3:
  by_name={p.stem:p for p in sources};sources=[by_name[n] for n in sys.argv[3:] if n in by_name]
 for src in sources:

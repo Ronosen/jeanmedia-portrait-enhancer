@@ -25,16 +25,22 @@ def finish(image,plan):
     cached=plan.get('backdropFinish')
     if cached and cached.get('pop')=='black' and cached.get('edgeFinish')!=1:
         cached=None
-    if cached is None and plan.get('separation',{}).get('backdropMethod')=='local-evidence-v2':
+    if cached is None and plan.get('separation',{}).get('backdropMethod') in ('local-evidence-v2','local-evidence-v3'):
         from scene_evidence import local_finish
         protected=unpack(plan['layers']['protected'],shape)>0
         safe=~protected
-        safe[round(plan['floor']*h):]=False
+        if plan.get('separation',{}).get('backdropMethod')=='local-evidence-v3':
+            safe &= unpack(plan['layers']['wallSurface'],shape)>0
+        else:safe[round(plan['floor']*h):]=False
         rgb=np.asarray(image.resize((w,h),Image.Resampling.LANCZOS))
         gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY).astype(np.float32)
         delta,strength,variation=local_finish(gray,safe)
+        if plan['separation']['backdropMethod']=='local-evidence-v3':
+            wall=unpack(plan['layers']['wallSurface'],shape)>0
+            distance=cv2.distanceTransform(wall.astype(np.uint8),cv2.DIST_L2,3)
+            delta*=np.clip(distance/max(4,h*.02),0,1)
         mask=(delta!=0).astype(np.uint8)*255
-        cached={'version':1,'edgeFinish':1,'method':'local-evidence-v2','scale':2,'shape':shape,
+        cached={'version':1,'edgeFinish':1,'method':plan['separation']['backdropMethod'],'scale':2,'shape':shape,
                 'delta':pack(np.rint(delta*2+128).astype(np.uint8)),'mask':pack(mask),
                 'strength':strength,'variation':variation,'pop':'none',
                 'action':'clean' if mask.any() else 'preserve'}
