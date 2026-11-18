@@ -1,0 +1,2 @@
+# Windows command scripts require consistent CRLF for label lookup in cmd.exe.
+*.cmd text eol=crlf
