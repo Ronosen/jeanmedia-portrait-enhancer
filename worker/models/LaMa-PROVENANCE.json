@@ -1,0 +1,9 @@
+{
+  "source": "https://huggingface.co/Carve/LaMa-ONNX/resolve/a3ee2fca54baebec351b8fa7786154ffa7555aa6/lama_fp32.onnx",
+  "sha256": "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6",
+  "bytes": 208044816,
+  "declaredLicense": "Apache-2.0",
+  "modelCard": "https://huggingface.co/Carve/LaMa-ONNX",
+  "originalSource": "https://github.com/advimman/lama",
+  "releaseLicenseAudit": "pending; publisher declaration is not commercial certification"
+}

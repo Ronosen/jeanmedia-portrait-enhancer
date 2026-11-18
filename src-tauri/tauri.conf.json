@@ -1,0 +1,29 @@
+{
+  "productName": "JeanMedia Portrait Enhancer",
+  "version": "0.1.0",
+  "identifier": "com.jeanmedia.portrait",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "JeanMedia Portrait Enhancer",
+        "width": 1180,
+        "height": 800,
+        "minWidth": 760,
+        "minHeight": 580
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}

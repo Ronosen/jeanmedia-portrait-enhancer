@@ -1,0 +1,61 @@
+{
+  "models": [
+    {
+      "name": "PP-HumanSeg",
+      "file": "human_segmentation_pphumanseg_2023mar.onnx",
+      "bytes": 6163938,
+      "sha256": "552d8a984054e59b5d773d24b9b12022b22046ceb2bbc4c9aaeaceb36a9ddf24",
+      "source": "https://github.com/opencv/opencv_zoo/tree/main/models/human_segmentation_pphumanseg",
+      "revision": "OpenCV Zoo 2023mar",
+      "licenseFile": "PPHumanSeg-LICENSE",
+      "declaredLicense": "Apache-2.0"
+    },
+    {
+      "name": "U2Netp",
+      "file": "u2netp.onnx",
+      "bytes": 4574861,
+      "sha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+      "source": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx",
+      "revision": "rembg v0.0.0 release",
+      "licenseFile": "U2Net-LICENSE",
+      "declaredLicense": "Apache-2.0"
+    },
+    {
+      "name": "YOLOX-Nano",
+      "file": "yolox_nano.onnx",
+      "bytes": 3659407,
+      "sha256": "c789161ed43c8269fcd4e67c67eeeb4e80c622da2eb296a20bc6007bd18a0b7d",
+      "source": "https://github.com/Megvii-BaseDetection/YOLOX",
+      "revision": "Upstream export revision needs release verification",
+      "licenseFile": "YOLOX-LICENSE",
+      "declaredLicense": "Apache-2.0"
+    },
+    {
+      "name": "LaMa FP32 ONNX inpainting",
+      "file": "lama_fp32.onnx",
+      "bytes": 208044816,
+      "sha256": "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6",
+      "revision": "a3ee2fca54baebec351b8fa7786154ffa7555aa6",
+      "source": "https://huggingface.co/Carve/LaMa-ONNX/resolve/a3ee2fca54baebec351b8fa7786154ffa7555aa6/lama_fp32.onnx",
+      "licenseFile": "LaMa-LICENSE",
+      "declaredLicense": "Apache-2.0 (publisher declaration)",
+      "releaseAudit": "upstream commercial provenance review pending",
+      "input": "RGB float32 0..1; 512 x 512; batch fixed to 1",
+      "output": "RGB float32 0..255",
+      "approval": "User approved 208 MB local download and testing on 2026-11-12"
+    },
+    {
+      "name": "BiRefNet general lite",
+      "file": "birefnet-general-lite.onnx",
+      "bytes": 224005088,
+      "sha256": "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333",
+      "source": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx",
+      "revision": "general-bb_swin_v1_tiny-epoch_232",
+      "licenseFile": "BiRefNet-LICENSE",
+      "declaredLicense": "MIT",
+      "approval": "User authorized free open-source downloads for internal subject isolation on 2026-11-17"
+    }
+  ],
+  "automaticDownloads": false,
+  "releaseAudit": "pending"
+}

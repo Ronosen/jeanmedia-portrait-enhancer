@@ -1,0 +1,221 @@
+{
+  "status": "Inventory only; native codecs/assets and release obligations need review",
+  "python": [
+    {
+      "name": "numpy",
+      "version": "2.5.4",
+      "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "licenseFiles": [
+        "LICENSE.txt",
+        "numpy/_core/include/numpy/libdivide/LICENSE.txt",
+        "numpy/_core/src/common/pythoncapi-compat/COPYING",
+        "numpy/_core/src/highway/LICENSE",
+        "numpy/_core/src/multiarray/dragon4_LICENSE.txt",
+        "numpy/_core/src/npysort/x86-simd-sort/LICENSE.md",
+        "numpy/_core/src/umath/svml/LICENSE",
+        "numpy/fft/pocketfft/LICENSE.md",
+        "numpy/linalg/lapack_lite/LICENSE.txt",
+        "numpy/ma/LICENSE",
+        "numpy/random/LICENSE.md",
+        "numpy/random/src/distributions/LICENSE.md",
+        "numpy/random/src/mt19937/LICENSE.md",
+        "numpy/random/src/pcg64/LICENSE.md",
+        "numpy/random/src/philox/LICENSE.md",
+        "numpy/random/src/sfc64/LICENSE.md",
+        "numpy/random/src/splitmix64/LICENSE.md"
+      ]
+    },
+    {
+      "name": "onnxruntime",
+      "version": "1.31.1",
+      "license": "MIT License",
+      "licenseFiles": null
+    },
+    {
+      "name": "opencv-python-headless",
+      "version": "4.14.0.94",
+      "license": "Apache 2.0",
+      "licenseFiles": [
+        "LICENSE-3RD-PARTY.txt",
+        "LICENSE.txt"
+      ]
+    },
+    {
+      "name": "opencv-python-headless",
+      "version": "5.0.0.93",
+      "license": "Apache 2.0",
+      "licenseFiles": [
+        "LICENSE-3RD-PARTY.txt",
+        "LICENSE.txt"
+      ]
+    },
+    {
+      "name": "pillow",
+      "version": "12.3.0",
+      "license": "MIT-CMU",
+      "licenseFiles": [
+        "LICENSE"
+      ]
+    }
+  ],
+  "javascript": [
+    {
+      "name": "csstype",
+      "version": "3.2.3",
+      "license": "MIT"
+    },
+    {
+      "name": "csstype",
+      "version": "3.2.3",
+      "license": "MIT"
+    },
+    {
+      "name": "esbuild",
+      "version": "0.25.12",
+      "license": "MIT"
+    },
+    {
+      "name": "fdir",
+      "version": "6.5.0",
+      "license": "MIT"
+    },
+    {
+      "name": "picomatch",
+      "version": "4.0.7",
+      "license": "MIT"
+    },
+    {
+      "name": "nanoid",
+      "version": "3.3.20",
+      "license": "MIT"
+    },
+    {
+      "name": "picocolors",
+      "version": "1.1.1",
+      "license": "ISC"
+    },
+    {
+      "name": "picomatch",
+      "version": "4.0.7",
+      "license": "MIT"
+    },
+    {
+      "name": "nanoid",
+      "version": "3.3.20",
+      "license": "MIT"
+    },
+    {
+      "name": "picocolors",
+      "version": "1.1.1",
+      "license": "ISC"
+    },
+    {
+      "name": "postcss",
+      "version": "8.5.32",
+      "license": "MIT"
+    },
+    {
+      "name": "source-map-js",
+      "version": "1.2.2",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "name": "react",
+      "version": "19.3.1",
+      "license": "MIT"
+    },
+    {
+      "name": "react-dom",
+      "version": "19.3.1",
+      "license": "MIT"
+    },
+    {
+      "name": "scheduler",
+      "version": "0.28.0",
+      "license": "MIT"
+    },
+    {
+      "name": "react",
+      "version": "19.3.1",
+      "license": "MIT"
+    },
+    {
+      "name": "rollup",
+      "version": "4.68.1",
+      "license": "MIT"
+    },
+    {
+      "name": "scheduler",
+      "version": "0.28.0",
+      "license": "MIT"
+    },
+    {
+      "name": "source-map-js",
+      "version": "1.2.2",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "name": "fdir",
+      "version": "6.5.0",
+      "license": "MIT"
+    },
+    {
+      "name": "picomatch",
+      "version": "4.0.7",
+      "license": "MIT"
+    },
+    {
+      "name": "tinyglobby",
+      "version": "0.2.17",
+      "license": "MIT"
+    },
+    {
+      "name": "typescript",
+      "version": "5.9.3",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "esbuild",
+      "version": "0.25.12",
+      "license": "MIT"
+    },
+    {
+      "name": "fdir",
+      "version": "6.5.0",
+      "license": "MIT"
+    },
+    {
+      "name": "picomatch",
+      "version": "4.0.7",
+      "license": "MIT"
+    },
+    {
+      "name": "postcss",
+      "version": "8.5.32",
+      "license": "MIT"
+    },
+    {
+      "name": "rollup",
+      "version": "4.68.1",
+      "license": "MIT"
+    },
+    {
+      "name": "tinyglobby",
+      "version": "0.2.17",
+      "license": "MIT"
+    },
+    {
+      "name": "vite",
+      "version": "6.4.5",
+      "license": "MIT"
+    }
+  ],
+  "addedModel": {
+    "name": "BiRefNet general lite",
+    "license": "MIT",
+    "licenseFile": "worker/models/BiRefNet-LICENSE",
+    "source": "https://github.com/ZhengPeng7/BiRefNet",
+    "distribution": "https://github.com/danielgatis/rembg/releases/tag/v0.0.0",
+    "sha256": "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333"
+  }
+}
