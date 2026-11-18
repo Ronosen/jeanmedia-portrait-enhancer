@@ -5,6 +5,10 @@ import numpy as np
 from PIL import Image
 
 
+class BackdropExtentError(ValueError):
+    """Visible samples cannot support a backdrop fit at this boundary."""
+
+
 def background_basis(x, y):
     return np.stack((np.ones_like(x), x, y, x * x, x * y, y * y), axis=-1)
 
@@ -24,7 +28,7 @@ def fit_backdrop(rgb, protected, floor):
     allowed[:, round(width * .92):] = False
     coordinates = np.argwhere(allowed)[::8]
     if len(coordinates) < 500:
-        raise ValueError("Needs Review · Too little unobstructed backdrop is visible.")
+        raise BackdropExtentError("Needs Review · Too little unobstructed backdrop is visible.")
     colors = rgb[coordinates[:, 0], coordinates[:, 1]].astype(np.float32)
     bins = np.floor(colors / 24).astype(int)
     ids = bins[:, 0] * 121 + bins[:, 1] * 11 + bins[:, 2]
@@ -37,7 +41,7 @@ def fit_backdrop(rgb, protected, floor):
     points = coordinates[chosen]
     values = colors[chosen]
     if np.ptp(points[:, 1]) < width * .35 or np.ptp(points[:, 0]) < height * .25:
-        raise ValueError("Needs Review · The visible backdrop is too small to extend reliably.")
+        raise BackdropExtentError("Needs Review · The visible backdrop is too small to extend reliably.")
     design = background_basis(points[:, 1] / max(1, width-1),
                               points[:, 0] / max(1, height-1))
     weights = np.ones(len(points))
@@ -224,7 +228,22 @@ def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
     floor_witness=(floor_probability if floor_probability is not None else probability)>.5
     floor, floor_analysis = floor_evidence(rgb, floor_witness)
     if plan is None:
-        coefficients, low, high, model = fit_backdrop(rgb, protected, floor)
+        try:
+            coefficients, low, high, model = fit_backdrop(rgb, protected, floor)
+        except BackdropExtentError:
+            if floor_probability is None or foreground_probability is None:
+                raise
+            # Validate an apparently tiny wall with independent foreground
+            # evidence. Dark gowns missed by the person model must not vote
+            # as background; reflections in the matte alone are insufficient.
+            retry_witness=floor_witness|((foreground_probability>.95)&(floor_probability>.05))
+            retry_floor,retry_analysis=floor_evidence(rgb,retry_witness,require_coherence=True)
+            if not retry_analysis['detected'] or retry_floor<=floor:
+                raise
+            coefficients,low,high,model=fit_backdrop(rgb,protected,retry_floor)
+            retry_analysis['validation']='foreground-consensus-retry'
+            retry_analysis['rejectedRow']=round(floor*rgb.shape[0])
+            floor,floor_analysis,floor_witness=retry_floor,retry_analysis,retry_witness
         plan = {"version": 3 if detailed else 1, "coefficients": coefficients.tolist(),
                 "low": low.tolist(), "high": high.tolist(),
                 "floor": float(floor), "floorAnalysis": floor_analysis, "cleanFloor": bool(clean_floor)}

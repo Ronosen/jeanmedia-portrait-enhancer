@@ -79,6 +79,11 @@ def prepare(plan,rgb,alpha,probability,objects):
   alpha[support&~trimmed&(alpha<.95)]=0
   support=trimmed
   alpha[support]=1
+ if plan['layers'].get('support'):
+  from support_geometry import attached_props
+  support=unpack(plan['layers']['support'],[h,w])>0
+  props=attached_props(rgb,alpha,support,model)
+  alpha[props]=1
  # Soft floor reflections are background, not part of the extracted person.
  # Keep the measured edge beside opaque people/supports; discard remote haze.
  distance=cv2.distanceTransform((alpha<.5).astype(np.uint8),cv2.DIST_L2,3)

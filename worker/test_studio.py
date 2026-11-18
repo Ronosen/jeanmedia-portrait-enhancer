@@ -8,6 +8,20 @@ from studio import prepare_backdrop, render_backdrop
 
 
 class StudioBackdropTests(unittest.TestCase):
+    def test_tiny_backdrop_rechecks_floor_with_independent_foreground_evidence(self):
+        from studio import BackdropExtentError,fit_backdrop
+        image,probability,objects=self.scene();rgb=np.asarray(image)
+        candidates=[(.2,{'detected':True,'row':160}),(.8125,{'detected':True,'row':650})]
+        with patch('scene_evidence.floor_evidence',side_effect=candidates) as detect:
+            plan,_,_=prepare_backdrop(rgb,probability,objects,foreground_probability=probability,
+                                      floor_probability=probability)
+        self.assertEqual(detect.call_count,2)
+        self.assertTrue(detect.call_args.kwargs['require_coherence'])
+        self.assertEqual(plan['floor'],.8125)
+        self.assertEqual(plan['floorAnalysis']['validation'],'foreground-consensus-retry')
+        # The original protection and minimum fit coverage still apply.
+        with self.assertRaises(BackdropExtentError):fit_backdrop(rgb,np.ones(probability.shape,bool),.2)
+
     def test_complete_support_edge_is_preserved_instead_of_disjoint_colour_patches(self):
         from studio import support_shapes
         rgb=np.full((300,240,3),30,np.uint8);rgb[120:240,60:180]=220;rgb[120:135,95:125]=35
@@ -31,7 +45,7 @@ class StudioBackdropTests(unittest.TestCase):
                 full,after,plan,status=auto_edit(image,image,True)
             self.assertEqual(status,'Needs review')
             self.assertEqual(plan['adaptiveRevision'],3)
-            self.assertEqual(plan['processingRevision'],10)
+            self.assertEqual(plan['processingRevision'],11)
             self.assertEqual(image.tobytes(),after.tobytes())
             self.assertEqual(change_mask(plan).getbbox(),None)
             _,replay,_=clean_studio(image,image,plan,export=True)

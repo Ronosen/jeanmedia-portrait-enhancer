@@ -3,6 +3,33 @@ import cv2
 import numpy as np
 
 
+def attached_props(rgb,alpha,support,model):
+    """Retain compact source objects contacting both a support top and a hand."""
+    result=np.zeros_like(support,dtype=bool);h,w=support.shape
+    person=(alpha>.5)&~support
+    n,labels,stats,_=cv2.connectedComponentsWithStats(support.astype(np.uint8))
+    for index in range(1,n):
+        x,y,bw,bh,area=stats[index]
+        if area<h*w*.005 or bh<h*.08:continue
+        top=max(0,y-round(bh*.3));bottom=min(h,y+4)
+        if y-top<4:continue
+        region=np.s_[top:bottom,x:x+bw]
+        contrast=np.max(np.abs(rgb[region].astype(float)-model[region]),axis=2)>25
+        contrast=cv2.morphologyEx(contrast.astype(np.uint8),cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
+        count,parts,boxes,_=cv2.connectedComponentsWithStats(contrast)
+        hand=cv2.dilate(person[region].astype(np.uint8),np.ones((7,7),np.uint8))>0
+        for part in range(1,count):
+            px,py,pw,ph,size=boxes[part];mask=parts==part
+            if size<max(20,area*.005) or ph<4 or py+ph<y-top-3:continue
+            if not (mask&hand).any():continue
+            # Source geometry, including dark printed details between bright
+            # book covers, belongs to the contacting prop, not the backdrop.
+            contours,_=cv2.findContours(mask.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+            hull=cv2.convexHull(np.concatenate(contours));local=np.zeros(mask.shape,np.uint8)
+            cv2.fillPoly(local,[hull],1);result[region] |= local>0
+    return result
+
+
 def box_seats(rgb,person):
     h,w=person.shape;result=np.zeros_like(person)
     rows=np.flatnonzero(person.any(axis=1))

@@ -7,6 +7,12 @@ from backdrop_finish import finish, pack, unpack
 
 
 class SceneEvidenceTests(unittest.TestCase):
+    def test_opposite_local_edges_are_not_one_material_transition(self):
+        rgb=np.full((400,240,3),20,np.uint8);rgb[:100,120:]=40;rgb[100:300,:120]=40;rgb[300:]=100
+        protected=np.zeros((400,240),bool);protected[40:380,100:140]=True
+        floor,analysis=floor_evidence(rgb,protected,require_coherence=True)
+        self.assertTrue(analysis['detected']);self.assertAlmostEqual(floor,.75,delta=.025)
+
     def test_sloping_uneven_join_is_preserved_instead_of_a_horizontal_cutoff(self):
         h,w=400,280;yy,xx=np.mgrid[:h,:w]
         for direction in (-1,1):

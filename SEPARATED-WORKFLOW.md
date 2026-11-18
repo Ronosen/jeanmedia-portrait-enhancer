@@ -130,3 +130,24 @@ colour transitions distinguish dark floor material from dark cloth. Consensus
 counts only visible witnesses with spatial separation; occluded columns do not
 vote against the boundary. The extraction matte still controls compositing and
 subject protection.
+
+## Validate an apparently tiny backdrop — revision 11
+
+A false early floor transition can leave too little wall for a reliable fit.
+When the fit specifically fails its sample-extent checks, the planner retries
+with corroborated high-confidence foreground pixels from both models. The
+retry requires separated visible witnesses whose colour transitions agree in
+direction and magnitude. It accepts a later boundary only after the original
+fit coverage checks pass. The retry is recorded in `floorAnalysis`; genuinely
+insufficient samples still require review. Other valid plans keep their
+original detection path. No filename-specific branches are used.
+
+Compact source props touching a hand and a confirmed support top are added to
+foreground protection, including the dark printed gaps between book covers.
+The hull is constrained to the support's local geometry. Unattached objects
+remain eligible for background cleanup.
+
+Regression checks cover the retry, opposing unrelated edges, contact props and
+insufficient samples. Full-resolution checks are recorded in
+`qa/backdrop-extent-final`; they retain source hashes and compare subject cores,
+unselected pixels and saved export replay.

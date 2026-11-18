@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 
-def floor_evidence(rgb, protected):
+def floor_evidence(rgb, protected, require_coherence=False):
     h, w = protected.shape
     appearance=cv2.cvtColor(rgb,cv2.COLOR_RGB2LAB)
     radius = max(3, round(h * .0125))
@@ -42,6 +42,17 @@ def floor_evidence(rgb, protected):
     observed = np.array(observed)
     visible=observed[:, rows-radius] & observed[:, rows+radius]
     votes &= visible
+    # Separate edges can occur at the same height (wallpaper, sleeves, props).
+    # They are not a material boundary unless their colour changes agree in
+    # direction and scale across the visible witnesses.
+    if require_coherence:
+        length=np.linalg.norm(jump,axis=2)
+        unit=jump/np.maximum(length[...,None],.001)
+        similarity=np.einsum('prc,qrc->pqr',unit,unit)
+        ratio=np.maximum(length[:,None,:],length[None,:,:])/np.maximum(.001,np.minimum(length[:,None,:],length[None,:,:]))
+        coherent=(similarity>.7)&(ratio<3)&votes[:,None,:]&votes[None,:,:]
+        best=np.argmax(coherent.sum(axis=1),axis=0)
+        votes=coherent[best,:,np.arange(len(rows))].T
     agreement=votes.sum(axis=0)/np.maximum(1,visible.sum(axis=0))
     score=np.sum(np.where(votes,excess,0),axis=0)/np.maximum(1,votes.sum(axis=0))
     # Hidden subjects/props are missing evidence, not votes against the join.

@@ -6,6 +6,15 @@ from separation import anchored_alpha,composite,prepare,render,replay,trim_suppo
 from backdrop_finish import pack,unpack
 
 class SeparationTests(unittest.TestCase):
+ def test_books_touching_hand_and_pedestal_keep_their_printed_source_pixels(self):
+  from support_geometry import attached_props
+  rgb=np.full((240,180,3),30,np.uint8);support=np.zeros((240,180),bool);support[120:220,70:145]=True;rgb[support]=230
+  rgb[95:120,75:140]=(190,140,150);rgb[102:105,80:130]=15
+  alpha=np.zeros((240,180),np.float32);alpha[80:98,85:110]=1;rgb[alpha>0]=(140,80,55)
+  rgb[95:120,5:40]=200
+  props=attached_props(rgb,alpha,support,np.full_like(rgb,30,dtype=float))
+  self.assertTrue(props[103,100]);self.assertTrue(props[112,135]);self.assertFalse(props[110,20])
+
  def test_white_seat_stops_at_object_edge_before_cast_shadow(self):
   rgb=np.full((200,160,3),210,np.uint8);rgb[90:180,50:105]=235;rgb[90:180,105:115]=180
   support=np.zeros((200,160),bool);support[90:180,50:115]=True
