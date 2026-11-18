@@ -4,6 +4,12 @@ import numpy as np
 from background_objects import edge_clutter
 
 class EdgeClutterTests(unittest.TestCase):
+ def test_local_box_contrast_is_not_hidden_by_distant_bright_tiles(self):
+  rgb=np.full((400,300,3),55,np.uint8);protected=np.zeros((400,300),bool)
+  rgb[320:]=190;rgb[260:310,270:]=150
+  mask=edge_clutter(rgb,protected,.55)
+  self.assertTrue(mask[280,290]);self.assertFalse(mask[100,150])
+
  def test_thin_wall_panel_at_bottom_border_does_not_survive_on_dark_floor(self):
   rgb=np.full((300,240,3),30,np.uint8);protected=np.zeros((300,240),bool)
   rgb[30:265,0:3]=(225,225,225)

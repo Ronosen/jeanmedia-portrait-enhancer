@@ -29,6 +29,10 @@ def reconstruct(source,extension,foreground,clutter,floor,settings,removed=None)
  selected=(extension|ground_clutter)&~foreground
  if local_context and removed is not None:selected |= removed&(yy>=row)&(yy<round(floor*h))&~foreground
  opacity=selected.astype(np.float32)
+ if local_context and settings.get('blendRevision',0)>=2:
+  import cv2
+  distance=cv2.distanceTransform((selected|foreground).astype(np.uint8),cv2.DIST_L2,3)
+  opacity *= np.clip(distance/max(3,min(h,w)*.01),0,1)
  if local_context and settings.get('blendRevision',0)>=1:
   # The closer reconstruction can have slightly different illumination from
   # the whole-background plate. Blend inside its selected upper edge so two

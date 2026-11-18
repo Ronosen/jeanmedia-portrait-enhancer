@@ -20,6 +20,41 @@ release, with MIT attribution in `worker/models/BiRefNet-LICENSE`. Its SHA256 is
 No photo upload or model training is involved. CPU processing takes longer than
 the previous small-mask pipeline; the app reports progress and supports cancel.
 
+## Current corpus verification — revisions 13 and 14
+
+The frozen corpus contains 49 originals from `D:/test22` and `D:/test 222`.
+Existing `-finished` exports are excluded. The per-photo review is generated at
+`qa/corpus-review/index.html`, with machine-readable findings in `ledger.json`.
+Processing success and numerical preservation checks are separate from visual
+acceptance; a completed render is not a claim that the image is perfect.
+
+Detached salient objects excluded from the person layer are selected completely
+for reconstruction. Clothing contacting a person's upper silhouette is retained,
+as are detected people and intentional reflections. Paired vertical source edges
+recover thin chrome supports omitted by the matte. Source-supported bright seat
+surfaces are retained even when a measured rectangle describes only one panel;
+confirmed cropped supports can reach the bottom frame. Native prop contacts
+remain confined to measured foreground and its immediate antialiasing rim.
+
+The backdrop fit checks alternate dominant colour families when a cropped seat
+wins the largest colour bin but fails the wall-coverage test. The minimum sample
+and spatial coverage guards still apply. Overhead corner gear requires a measured
+diagonal edge with a dark-to-light transition; gradual vignettes are not selected.
+Spare edge boxes use nearby floor contrast so distant bright tiles do not hide
+them.
+
+Backdrop finishing now uses bounded local texture correction instead of a global
+surface residual. It excludes measured material boundaries and differing material
+colours, preserving broad illumination and the photographed floor. Floor-edge
+extension keeps its measured material boundary, filling only guard gaps beside
+the extracted silhouette. Repairs stay on background pixels. Local floor plates blend inside their selection boundaries;
+the foreground is excluded from that feather to avoid a halo beside shoes.
+
+Saved older plans retain their rendering methods. Auto Edit offers a rerun when
+the processing revision changes. QA caches contain exact model tensors keyed by
+source pixels and model SHA256; no filename or hand-drawn mask influences the
+production planner.
+
 The initial full-size comparison set is in `qa/separation-final-20261117`. It covers
 four graduates, two graduates with held props, a seated red-outfit portrait with
 a softbox, and a light-backdrop portrait. These are regression examples, not a

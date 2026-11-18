@@ -131,7 +131,12 @@ def support_shapes(rgb, person, protected, model, floor):
         x, y, w, h, area = stats[label]
         if x == 0 or x+w == width:
             continue
-        if (below < y < rows[-1] + height * .08 and y+h < height * .98
+        cropped=(y+h>=height*.98 and w>width*.15 and w<width*.85 and h<height*.4)
+        if cropped:
+            part=labels==label
+            cropped=(np.median(rgb[part].mean(axis=1))>100 and
+                     np.median(rgb[part].mean(axis=1)-model[part].mean(axis=1))>35)
+        if (below < y < rows[-1] + height * .08 and (y+h < height * .98 or cropped)
                 and area > width * height * .005 and w > width * .08
                 and h > height * .06 and area / (w*h) > .55):
             candidates.append(label)

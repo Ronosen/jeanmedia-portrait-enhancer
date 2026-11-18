@@ -7,6 +7,14 @@ from floor import apply_floor_patches, decode_mask, plan_floor_patches, validate
 
 
 class FloorPatchTests(unittest.TestCase):
+    def test_measured_mat_extension_reaches_shoes_without_selecting_them(self):
+        from floor import close_guard_gaps
+        protected=np.zeros((400,300),bool);protected[340:376,130:170]=True
+        extension=np.zeros_like(protected);extension[367:]=True;extension[350:390,120:180]=False
+        repaired=close_guard_gaps(extension,protected)
+        self.assertTrue(repaired[374,126]);self.assertFalse(repaired[protected].any())
+        self.assertFalse(repaired[360,126]);self.assertTrue(repaired[390,50])
+
     def test_front_edge_prefers_material_boundary_over_faint_floor_reflection(self):
         rgb=np.full((600,400,3),50,np.uint8);rgb[559:568]=42;rgb[590:]=190
         mask=front_edge_extension(rgb,np.ones((600,400),bool),450)>0

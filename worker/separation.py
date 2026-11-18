@@ -16,6 +16,13 @@ def trim_support_edges(rgb,support):
   if area<h*w*.005 or bh<h*.10 or bw<w*.10:continue
   left=x+round(bw*.65);right=min(w-4,x+bw+3)
   start=y+round(bh*.2);end=min(h,y+bh)
+  left_edges=[]
+  for col in range(max(4,x-3),min(w-4,x+round(bw*.35))):
+   difference=gray[start:end,col+3].astype(float)-gray[start:end,col-3]
+   if np.mean(difference>6)>.55 and np.median(difference)>6:left_edges.append(col)
+  if left_edges:
+   boundary=min(left_edges)
+   result[(labels==i)&(np.arange(w)[None,:]<boundary-1)]=False
   strengths=[]
   for col in range(max(4,left),right):
    difference=gray[start:end,col-3].astype(float)-gray[start:end,col+3]
@@ -57,7 +64,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
  model=np.clip(background_basis(xx/max(1,w-1),yy/max(1,h-1))@np.asarray(plan['coefficients']),plan['low'],plan['high'])
  alpha=alpha.copy()
  model_alpha=alpha.copy();source_contact=np.zeros((h,w),bool);source_blend=np.zeros((h,w),np.float32)
- from scene_objects import thin_supports,detached_clutter
+ from scene_objects import thin_supports,detached_clutter,corner_equipment
  metal=thin_supports(rgb,alpha,objects)
  alpha[metal]=1
  if plan['layers'].get('support'):
@@ -113,6 +120,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
  alpha[(yy>=round(plan['floor']*h))&(alpha<.5)&(distance>4)]=0
  # Reconstruction may run right up to the true matte, never a padded silhouette.
  protected=alpha>.02
+ overhead=corner_equipment(rgb,protected)
  from scene_evidence import wall_surface
  if 'floorAnalysis' in plan:
   witness=unpack(plan['layers']['floorWitness'],[h,w])>0 if plan['layers'].get('floorWitness') else protected
@@ -120,12 +128,13 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
  else:
   wall=np.broadcast_to(yy<round(plan['floor']*h),(h,w)).copy();contour={'method':'legacy-row'}
  if plan.get('floorAnalysis',{}).get('detected') and plan.get('floorRepairs'):
-  from floor import decode_mask
+  from floor import decode_mask,close_guard_gaps
   rows=contour.get('groundRows',[])
   ground=(yy>=np.asarray(rows)[None,:]) if len(rows)==w else np.zeros((h,w),bool)
   patches=plan['floorRepairs']
   for name in ('defects','extension'):
    allowed=(decode_mask(patches[name],(h,w))>0)&ground&~protected
+   if name=='extension':allowed=close_guard_gaps(allowed,protected)&ground&~protected
    patches[name]=pack(allowed.astype(np.uint8)*255)
   patches['count']=int(cv2.connectedComponents((decode_mask(patches['defects'],(h,w))>0).astype(np.uint8))[0]-1)+int((decode_mask(patches['extension'],(h,w))>0).any())
  panels=frame_panels(rgb,probability,model,objects,plan['floor'])
@@ -150,6 +159,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
  # Keep their complete measured footprint selected, including its bottom tip.
  clutter |= ((equipment>0)|panels)&~protected
  clutter |= orphan
+ clutter |= overhead
  selected |= clutter
  layers=plan['layers'];layers['foregroundAlpha']=pack(np.rint(alpha*255).astype(np.uint8))
  layers['person']=layers['foregroundAlpha'];layers['protected']=pack(protected.astype(np.uint8)*255)
@@ -160,9 +170,9 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
  layers['sourceContactBlend']=pack(np.rint(source_blend*255).astype(np.uint8))
  layers['detachedClutter']=pack(orphan.astype(np.uint8)*255)
  layers['thinSupport']=pack(metal.astype(np.uint8)*255)
- plan['sceneObjects']={'detachedClutterCount':orphan_count,'thinSupportPixels':int(metal.sum())}
+ plan['sceneObjects']={'detachedClutterCount':orphan_count,'thinSupportPixels':int(metal.sum()),'overheadEquipmentPixels':int(overhead.sum())}
  plan['surfaceContour']=contour
- plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v2','backdropMethod':'local-evidence-v4'}
+ plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v3','backdropMethod':'local-evidence-v4'}
  if selected.mean()>.04:
   message='Large background reconstruction needs review.'
   if message not in plan.setdefault('review',[]):plan['review'].append(message)
@@ -203,7 +213,7 @@ def render(source,selected,plan):
  if plan.get('floorRepairs'):holes |= decode_mask(plan['floorRepairs']['extension'],tuple(shape))>0
  plate=plan.setdefault('backgroundPlate',{'plateOnly':True,'excludeForegroundContext':False})
  floor_method=plan.get('separation',{}).get('floorMethod')
- source_floor=floor_method in ('source-texture-v1','context-crop-v1','context-crop-v2')
+ source_floor=floor_method in ('source-texture-v1','context-crop-v1','context-crop-v2','context-crop-v3')
  if plan.get('floorRepairs') and not source_floor:
   plate.update(floorRepairs=plan['floorRepairs'],floor=plan['floor'],adaptiveRevision=plan.get('adaptiveRevision',3))
  progress('Removing subjects from background plate',60)
@@ -226,10 +236,10 @@ def render(source,selected,plan):
   clutter=unpack(plan['layers']['clutter'],shape)>0 if plan['layers'].get('clutter') else np.zeros(shape,bool)
   extension=decode_mask(patches['extension'],tuple(shape))>0
   ground_clutter=clutter&(np.arange(shape[0])[:,None]>=round((plan['floor']-.08)*shape[0]))
-  context_floor=(floor_method=='context-crop-v1' and extension.any()) or (floor_method=='context-crop-v2' and (extension.any() or ground_clutter.any()))
+  context_floor=(floor_method=='context-crop-v1' and extension.any()) or (floor_method in ('context-crop-v2','context-crop-v3') and (extension.any() or ground_clutter.any()))
   if context_floor and plan['floor']<.98:
    from floor_context import reconstruct
-   repaired,full_mask=reconstruct(source,extension,protected,clutter,plan['floor'],plan.setdefault('floorPlate',{'version':2 if floor_method=='context-crop-v2' else 1,'blendRevision':1}),selected>0)
+   repaired,full_mask=reconstruct(source,extension,protected,clutter,plan['floor'],plan.setdefault('floorPlate',{'version':2 if floor_method in ('context-crop-v2','context-crop-v3') else 1,'blendRevision':2 if floor_method=='context-crop-v3' else 1}),selected>0)
    defects=dict(patches);defects['extension']=pack(np.zeros(shape,np.uint8))
    repaired=apply_floor_patches(repaired,plan['floor'],defects,protected|clutter)
    defect_mask=Image.fromarray(decode_mask(patches['defects'],tuple(shape))).resize(source.size,Image.Resampling.NEAREST)

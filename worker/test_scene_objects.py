@@ -1,10 +1,24 @@
 import unittest
 import numpy as np
-from scene_objects import detached_clutter,thin_supports
+from scene_objects import detached_clutter,thin_supports,corner_equipment
 from scene_evidence import texture_finish
 
 
 class SceneObjectsTests(unittest.TestCase):
+ def test_overhead_corner_gear_uses_its_edge_and_preserves_a_cap(self):
+  import cv2
+  rgb=np.full((400,300,3),60,np.uint8)
+  cv2.fillPoly(rgb,[np.array([[0,0],[115,0],[0,65]])],(5,5,5))
+  protected=np.zeros((400,300),bool)
+  mask=corner_equipment(rgb,protected)
+  self.assertTrue(mask[10,10]);self.assertFalse(mask[100,100])
+  protected[5:45,5:70]=True
+  self.assertFalse(corner_equipment(rgb,protected).any())
+
+ def test_gradual_dark_corner_is_not_selected_as_equipment(self):
+  yy,xx=np.mgrid[:400,:300];gray=np.clip(10+(xx+yy)*.15,0,80).astype(np.uint8)
+  self.assertFalse(corner_equipment(np.repeat(gray[...,None],3,2),np.zeros(gray.shape,bool)).any())
+
  def test_clutter_shadow_is_removed_without_extending_into_a_bright_floor(self):
   raw=np.zeros((320,280),np.float32);raw[20:190,30:110]=1
   rgb=np.full((320,280,3),50,np.uint8);rgb[20:190,30:110]=15;rgb[30:185,110:117]=25;rgb[190:]=80

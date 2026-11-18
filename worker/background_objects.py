@@ -20,7 +20,9 @@ def edge_clutter(rgb,protected,floor,removed_wall=None):
    x,y,bw,bh,area=box_stats[i]
    thin_panel=lower and dark_floor and 1<=bw<=w*.03 and h*.05<bh<h*.3 and area>h*w*.0001
    box=w*.03<bw<w*.28 and h*.03<bh<h*.3 and h*w*.002<area<h*w*.08
-   if (x==0 or x+bw==w) and y>h*.5 and (y<floor*h or dark_floor and y<h*.9) and (box or thin_panel):
+   nearby=gray[min(h-1,y+bh):min(h,y+bh+max(4,round(h*.02))),max(0,x-round(w*.05)):min(w,x+bw)]
+   local_box=box and nearby.size and float(np.median(gray[components==i]))-float(np.median(nearby))>30
+   if (x==0 or x+bw==w) and y>h*.5 and (y<floor*h or (dark_floor or local_box) and y<h*.9) and (box or thin_panel):
     part=(components==i).astype(np.uint8)
     outline,_=cv2.findContours(part,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
     cv2.fillPoly(result,[cv2.convexHull(np.concatenate(outline))],255)

@@ -20,6 +20,10 @@ def support_contacts(alpha,support,props=None):
     contact=(cv2.dilate(hard.astype(np.uint8),kernel)>0)&(cv2.dilate(adjacent.astype(np.uint8),kernel)>0)
     if support.any() and props.any():
         contact |= (cv2.dilate(support.astype(np.uint8),kernel)>0)&(cv2.dilate(props.astype(np.uint8),kernel)>0)
+    # A contact corridor must remain on measured foreground, apart from one
+    # preview pixel of native antialiasing. Two overlapping dilations alone
+    # also enclosed exposed wall beside a hand resting on a seat.
+    contact &= (cv2.dilate(hard.astype(np.uint8),np.ones((3,3),np.uint8))>0)|(alpha>.5)
     return contact
 
 
@@ -28,7 +32,9 @@ def support_source_masks(rgb,model,alpha,support,props):
     radius=max(2,round(min(support.shape)*.005))
     distance=cv2.distanceTransform(contact.astype(np.uint8),cv2.DIST_L2,3)
     blend=np.clip(distance/radius,0,1)
-    reach=max(3,round(min(support.shape)*.025))
+    # This is a source rim recovery, not a new object search. A wide halo
+    # also copied nearby exposed wall strips back over a cleaned backdrop.
+    reach=max(3,round(min(support.shape)*.01))
     near=cv2.dilate(support.astype(np.uint8),cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(reach*2+1,)*2))>0
     surface=near&(rgb.mean(axis=2)-model.mean(axis=2)>10)
     exact=surface|props|(blend>=1)

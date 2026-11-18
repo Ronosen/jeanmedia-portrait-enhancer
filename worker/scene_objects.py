@@ -3,6 +3,35 @@ import cv2
 import numpy as np
 
 
+def corner_equipment(rgb,protected):
+    """Select dark overhead gear bounded by a measured diagonal source edge."""
+    h,w=protected.shape;gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY)
+    edges=cv2.Canny(gray,12,36);edges[protected]=0
+    lines=cv2.HoughLinesP(edges,1,np.pi/180,max(20,w//12),minLineLength=min(h,w)*.12,maxLineGap=12)
+    result=np.zeros((h,w),np.uint8)
+    if lines is None:return result>0
+    for xa,ya,xb,yb in lines[:,0]:
+        dx=float(xb-xa);dy=float(yb-ya)
+        if abs(dx)<10 or abs(dy)<10 or not .15<abs(dy/dx)<4:continue
+        top=xa-ya*dx/dy
+        for side in (0,w-1):
+            side_y=ya+(side-xa)*dy/dx
+            reach=top if side==0 else w-1-top
+            if not w*.04<reach<w*.45 or not h*.025<side_y<h*.35:continue
+            mask=np.zeros((h,w),np.uint8)
+            cv2.fillPoly(mask,[np.array([[side,0],[round(top),0],[side,round(side_y)]],np.int32)],1)
+            if (mask&protected).sum()>max(3,mask.sum()*.01):continue
+            boundary=np.zeros((h,w),np.uint8)
+            cv2.line(boundary,(round(top),0),(side,round(side_y)),1,max(5,round(min(h,w)*.015)))
+            inner=(boundary>0)&(mask>0)&~protected
+            outer=(boundary>0)&(mask==0)&~protected
+            if inner.sum()<30 or outer.sum()<30:continue
+            # A gradual vignette has no abrupt measured two-sided edge.
+            if np.median(gray[inner])>35 or np.median(gray[outer])-np.median(gray[inner])<10:continue
+            result |= cv2.dilate(mask,np.ones((7,7),np.uint8))
+    return (result>0)&~protected
+
+
 def detached_clutter(raw,protected,people,floor,rgb=None,reference=None):
     result=np.zeros(protected.shape,bool)
     if raw is None:return result,0

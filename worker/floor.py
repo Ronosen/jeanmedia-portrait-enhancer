@@ -30,6 +30,19 @@ def decode_mask(encoded, shape):
     return mask
 
 
+def close_guard_gaps(extension,protected):
+    """Fill only guard holes inside an already measured floor-extension band."""
+    result=extension.copy();h,w=result.shape
+    radius=max(8,round(min(h,w)*.04))
+    near=cv2.dilate(protected.astype(np.uint8),cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(radius*2+1,)*2))>0
+    for y in np.flatnonzero(extension.any(axis=1)):
+        columns=np.flatnonzero(extension[y])
+        if len(columns)<w*.25:continue
+        span=np.zeros(w,bool);span[columns[0]:columns[-1]+1]=True
+        result[y] |= span&near[y]&~protected[y]
+    return result
+
+
 def front_edge_extension(rgb,available,row):
     """Locate a low-contrast mat front only when bottom material differs."""
     h,w=available.shape;result=np.zeros((h,w),np.uint8)

@@ -8,6 +8,13 @@ from studio import prepare_backdrop, render_backdrop
 
 
 class StudioBackdropTests(unittest.TestCase):
+    def test_bright_support_cut_by_bottom_frame_is_kept(self):
+        from studio import support_shapes
+        rgb=np.full((400,300,3),30,np.uint8);rgb[290:,65:245]=170
+        person=np.zeros((400,300),bool);person[65:300,90:145]=True
+        _,found,confirmed=support_shapes(rgb,person,person.copy(),np.full_like(rgb,30,dtype=float),1)
+        self.assertTrue(found);self.assertTrue(confirmed[390,200]);self.assertFalse(confirmed[390,270])
+
     def test_cropped_seat_colour_does_not_hide_a_valid_wall_family(self):
         from studio import fit_backdrop
         rgb=np.full((400,300,3),45,np.uint8)
@@ -56,7 +63,7 @@ class StudioBackdropTests(unittest.TestCase):
                 full,after,plan,status=auto_edit(image,image,True)
             self.assertEqual(status,'Needs review')
             self.assertEqual(plan['adaptiveRevision'],3)
-            self.assertEqual(plan['processingRevision'],13)
+            self.assertEqual(plan['processingRevision'],14)
             self.assertEqual(image.tobytes(),after.tobytes())
             self.assertEqual(change_mask(plan).getbbox(),None)
             _,replay,_=clean_studio(image,image,plan,export=True)

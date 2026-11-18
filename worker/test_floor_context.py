@@ -6,6 +6,18 @@ from floor_context import reconstruct
 from studio import floor_boundary
 
 class FloorContextTests(unittest.TestCase):
+ def test_floor_patch_blends_inside_its_boundary_without_a_subject_halo(self):
+  source=Image.new('RGB',(200,300),(90,95,100));empty=np.zeros((300,200),bool)
+  clutter=empty.copy();clutter[240:290,:50]=True
+  foreground=empty.copy();foreground[240:280,20:30]=True
+  with patch('floor_context.repair',side_effect=lambda im,*args:Image.new('RGB',im.size,(70,75,80))):
+   result,mask=reconstruct(source,empty,foreground,clutter,.8,{'version':2,'blendRevision':2})
+  final=np.asarray(Image.composite(result,source,mask))
+  self.assertGreater(int(final[265,49,0]),70);self.assertLess(int(final[265,49,0]),90)
+  np.testing.assert_array_equal(final[265,50],[90,95,100])
+  np.testing.assert_array_equal(final[265,19],[70,75,80])
+  np.testing.assert_array_equal(final[foreground],np.asarray(source)[foreground])
+
  def test_local_crop_excludes_removed_wall_clutter_from_its_donor_context(self):
   source=Image.new('RGB',(100,150),(90,95,100));empty=np.zeros((150,100),bool)
   clutter=empty.copy();clutter[120:140,0:8]=True;removed=clutter.copy();removed[110:120,0:8]=True

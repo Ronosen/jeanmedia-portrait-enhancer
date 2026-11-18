@@ -6,6 +6,26 @@ from separation import anchored_alpha,composite,prepare,render,replay,trim_suppo
 from backdrop_finish import pack,unpack
 
 class SeparationTests(unittest.TestCase):
+ def test_seat_left_edge_excludes_a_nearby_bright_wall_fragment(self):
+  rgb=np.full((240,200,3),25,np.uint8);rgb[:,:60]=130;rgb[110:220,60:170]=230
+  support=np.zeros((240,200),bool);support[110:220,40:170]=True
+  actual=trim_support_edges(rgb,support)
+  self.assertFalse(actual[170,45]);self.assertTrue(actual[170,65])
+
+ def test_hand_seat_contact_does_not_promote_nearby_wall_to_foreground(self):
+  from support_geometry import support_contacts
+  support=np.zeros((300,240),bool);support[150:260,100:180]=True
+  alpha=np.zeros((300,240),np.float32);alpha[130:155,94:130]=1
+  contact=support_contacts(alpha,support)
+  self.assertFalse(contact[158,95]);self.assertTrue(contact[149,110])
+
+ def test_support_rim_does_not_copy_a_nearby_detached_wall_strip(self):
+  from support_geometry import support_source_masks
+  rgb=np.full((300,240,3),30,np.uint8);support=np.zeros((300,240),bool)
+  support[90:260,105:170]=True;rgb[support]=220;rgb[90:260,99:102]=200
+  exact,_=support_source_masks(rgb,np.full_like(rgb,30,dtype=float),np.zeros((300,240),np.float32),support,np.zeros_like(support))
+  self.assertFalse(exact[180,100]);self.assertTrue(exact[180,110])
+
  def test_geometry_panel_does_not_erase_the_rest_of_a_bright_seat(self):
   rgb=np.full((240,200,3),25,np.uint8);rgb[140:220,65:180]=220
   alpha=np.zeros((240,200),np.float32);alpha[50:145,60:95]=1;rgb[alpha>0]=80
