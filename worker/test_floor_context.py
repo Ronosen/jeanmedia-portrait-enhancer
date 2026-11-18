@@ -36,4 +36,6 @@ class FloorContextTests(unittest.TestCase):
  def test_material_edge_below_shoes_does_not_become_the_floor_horizon(self):
   rgb=np.full((200,120,3),220,np.uint8);rgb[180:]=(160,120,90)
   subject=np.zeros((200,120),bool);subject[30:174,40:80]=True
-  self.assertLess(floor_boundary(rgb,subject),.82)
+  # With no visible wall/floor junction, preserve rather than invent a floor
+  # above the shoes from a fixed percentage of the frame.
+  self.assertEqual(floor_boundary(rgb,subject),1.0)

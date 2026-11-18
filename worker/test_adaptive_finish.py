@@ -49,7 +49,7 @@ class AdaptiveFinishTests(unittest.TestCase):
         from studio import floor_boundary
         rgb=np.repeat(np.repeat(np.linspace(15,55,600)[:,None,None],400,axis=1),3,axis=2).astype(np.uint8)
         subject=np.zeros((600,400),bool);subject[100:575,170:230]=True
-        self.assertEqual(floor_boundary(rgb,subject),.8)
+        self.assertEqual(floor_boundary(rgb,subject),1.0)
 
     def test_seamless_white_paper_has_no_artificial_horizon_band(self):
         rgb=np.full((180,140,3),210,np.uint8);body=np.zeros((180,140),np.uint8);body[35:135,45:95]=255

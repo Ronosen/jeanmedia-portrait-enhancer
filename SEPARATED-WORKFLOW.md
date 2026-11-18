@@ -79,3 +79,27 @@ remain enforced. Saturated backdrops retain the previous finishing treatment.
 Finishing is cached in the saved plan. Existing plans replay unchanged; Auto
 Edit is available for results made with older processing revisions. Local
 regression comparisons are in `qa/backdrop-fold-v8`.
+
+## Per-photo evidence — revision 9
+
+The revision 8 floor search and 80% fallback have been replaced. The planner
+checks material transitions across independent visible columns throughout the
+photo. It excludes overhead transitions using subject geometry, rejects
+interpolated samples hidden behind subjects, and records the measured row and
+agreement in `floorAnalysis`. Without sufficient evidence it records no floor
+boundary (1.0); it does not invent a donor band at a preset frame height.
+
+New separated plans use `local-evidence-v2`. A robust illumination fit separates
+broad lighting from local ridges; multiple contrast scales select defect areas
+wherever they occur. Masked filtering excludes people and the detected floor.
+Clean backgrounds can receive no finishing correction. The previous automatic
+whole-backdrop darkening/smoothing is not applied to new plans. Cached older
+plans still replay their saved appearance; Auto Edit creates revision 9 plans.
+
+Regression tests move floor boundaries and isolated folds through different
+positions, verify clean illumination is unchanged, and check subject/floor
+preservation and saved replay. Real-photo verification is recorded separately
+in `qa/adaptive-v9-verified`. These measurements do not guarantee that every
+subtle junction is detectable: ambiguous floor repair can be withheld, and
+other equipment/floor-edge detectors still have geometric priors. Visual
+acceptance of fine edges and reconstruction remains necessary.

@@ -10,50 +10,8 @@ def background_basis(x, y):
 
 
 def floor_boundary(rgb, protected):
-    height, width = protected.shape
-    # A cropped portrait can have backdrop all the way to the bottom. Do not
-    # invent a horizon through somebody's legs when no floor transition exists.
-    fallback = 1.0 if protected[-max(2, round(height*.015)):].any() else .80
-    medians = np.full((height, 3), np.nan)
-    for y in range(height):
-        available = ~protected[y]
-        if np.count_nonzero(available) > width * .20:
-            medians[y] = np.median(rgb[y, available], axis=0)
-    known = np.flatnonzero(np.isfinite(medians[:, 0]))
-    if len(known) < height * .3:
-        return fallback
-    for channel in range(3):
-        medians[:, channel] = np.interp(np.arange(height), known, medians[known, channel])
-    smooth = cv2.GaussianBlur(medians.astype(np.float32), (1, 0), 0, sigmaY=3)
-    energy = np.max(np.abs(smooth[8:] - smooth[:-8]), axis=1)
-    start, end = round(height * .68), min(round(height * .98), len(energy))
-    peaks = np.flatnonzero(energy[start:end] > max(8, energy[start:end].max() * .5))
-    if peaks.size:
-        boundary=(start + int(peaks[0]) + 4) / height
-        # A late, strong material transition is a mat lip, not evidence that
-        # the whole image has no floor. Leave donor space above that edge.
-        people_rows=np.flatnonzero(protected.any(axis=1))
-        if len(people_rows) and boundary>.85 and boundary>max(.80,people_rows[-1]/height-.05):
-            return max(.70,min(.85,people_rows[-1]/height-.10))
-        return .86 if boundary>.92 else boundary
-    wall_colour=np.median(medians[round(height*.3):round(height*.65)],axis=0)
-    if fallback<1 and wall_colour.mean()<65 and np.ptp(wall_colour)<35:
-        # Black cloth and a dark floor can meet below the old fixed fallback
-        # without an eight-pixel contrast spike. Find a sustained material rise
-        # at a wider scale; reject ordinary gradual illumination gradients.
-        gray=medians@np.array([.299,.587,.114])
-        gray=cv2.GaussianBlur(gray.astype(np.float32),(1,0),0,sigmaY=max(2,height*.003)).ravel()
-        radius=max(5,round(height*.0125));lo=round(height*.68);hi=round(height*.90)
-        positions=np.arange(lo,hi)
-        rise=gray[positions+radius]-gray[positions-radius]
-        peak=int(np.argmax(rise));level=float(rise[peak])
-        typical=float(np.median(np.abs(rise)))
-        centre=int(positions[peak])
-        above=np.median(gray[centre-3*radius:centre-radius])
-        below=np.median(gray[centre+radius:centre+3*radius])
-        if level>max(5,typical*3) and below-above>5:
-            return (centre-radius)/height
-    return fallback
+    from scene_evidence import floor_evidence
+    return floor_evidence(rgb, protected)[0]
 
 
 def fit_backdrop(rgb, protected, floor):
@@ -262,12 +220,13 @@ def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
         raise ValueError("Needs Review · Detailed foreground protection is unavailable.")
     person, protected, kept = initial_protection(probability, objects,
                                                 foreground_probability if detailed else None)
-    floor = floor_boundary(rgb, protected)
+    from scene_evidence import floor_evidence
+    floor, floor_analysis = floor_evidence(rgb, person)
     if plan is None:
         coefficients, low, high, model = fit_backdrop(rgb, protected, floor)
         plan = {"version": 3 if detailed else 1, "coefficients": coefficients.tolist(),
                 "low": low.tolist(), "high": high.tolist(),
-                "floor": float(floor), "cleanFloor": bool(clean_floor)}
+                "floor": float(floor), "floorAnalysis": floor_analysis, "cleanFloor": bool(clean_floor)}
         if floor_mode is not None:
             if floor_mode not in ("preserve", "patch", "replace"):
                 raise ValueError("Invalid floor treatment.")
@@ -288,7 +247,7 @@ def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
                 or not np.isfinite(coefficients).all() or not np.isfinite(low).all()
                 or not np.isfinite(high).all() or np.any(low < 0) or np.any(high > 255)
                 or np.any(low > high) or not isinstance(floor, (int, float))
-                or not .60 <= floor <= 1.0 or not isinstance(plan.get("cleanFloor"), bool)):
+                or not 0 < floor <= 1.0 or not isinstance(plan.get("cleanFloor"), bool)):
             raise ValueError("Invalid backdrop edit settings.")
         height, width = probability.shape
         yy, xx = np.mgrid[:height, :width]

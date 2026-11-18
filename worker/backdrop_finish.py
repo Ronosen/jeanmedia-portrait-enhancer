@@ -25,6 +25,20 @@ def finish(image,plan):
     cached=plan.get('backdropFinish')
     if cached and cached.get('pop')=='black' and cached.get('edgeFinish')!=1:
         cached=None
+    if cached is None and plan.get('separation',{}).get('backdropMethod')=='local-evidence-v2':
+        from scene_evidence import local_finish
+        protected=unpack(plan['layers']['protected'],shape)>0
+        safe=~protected
+        safe[round(plan['floor']*h):]=False
+        rgb=np.asarray(image.resize((w,h),Image.Resampling.LANCZOS))
+        gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY).astype(np.float32)
+        delta,strength,variation=local_finish(gray,safe)
+        mask=(delta!=0).astype(np.uint8)*255
+        cached={'version':1,'edgeFinish':1,'method':'local-evidence-v2','scale':2,'shape':shape,
+                'delta':pack(np.rint(delta*2+128).astype(np.uint8)),'mask':pack(mask),
+                'strength':strength,'variation':variation,'pop':'none',
+                'action':'clean' if mask.any() else 'preserve'}
+        plan['backdropFinish']=cached
     if cached is None:
         protected=unpack(plan['layers']['protected'],shape)>0
         if plan.get('adaptiveRevision',0)>=3 and not plan.get('partialCleanup') and not plan.get('separation') and plan['layers'].get('source'):

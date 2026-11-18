@@ -109,7 +109,7 @@ def prepare(plan,rgb,alpha,probability,objects):
  layers['person']=layers['foregroundAlpha'];layers['protected']=pack(protected.astype(np.uint8)*255)
  layers['edgeProtected']=layers['protected'];layers['backdrop']=pack(selected.astype(np.uint8)*255)
  layers['clutter']=pack(clutter.astype(np.uint8)*255)
- plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v2','backdropMethod':'multiscale-v1'}
+ plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v2','backdropMethod':'local-evidence-v2'}
  if selected.mean()>.04:
   message='Large background reconstruction needs review.'
   if message not in plan.setdefault('review',[]):plan['review'].append(message)
