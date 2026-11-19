@@ -28,6 +28,16 @@ Open the **⋯** menu for editable projects, batch saving, JPEG quality, print m
 
 A portable development package can be staged with `scripts/package-portable.ps1` after building the native executable. It includes a local Python runtime, dependencies and models and self-tests their loading. It is unsigned; installation on another computer is not yet verified.
 
+Every delivered app build gets a new GitHub release. After checks pass, commit
+and push the changes, then run `scripts/publish-release.py --bundle <verified-package>
+--tag <new-version> --title <release-title> --notes <notes-file>` with the local
+Python runtime. This prepares and verifies a portable ZIP and SHA-256 checksum.
+Run the same command with `--publish` to upload both to a draft, verify GitHub's
+asset digests and publish the development prerelease. The script uses Git's
+saved GitHub authentication without writing credentials to disk. Each release
+uses a new tag; existing published releases are preserved. Browser profiles,
+sessions, photos, caches and generated QA reports are excluded from the archive.
+
 The bundled PP-HumanSeg ONNX weights are distributed under Apache 2.0 by [OpenCV Zoo](https://github.com/opencv/opencv_zoo/tree/main/models/human_segmentation_pphumanseg). The license accompanies the weights in `worker/models`.
 
 Automatic backdrop cleanup reconstructs the detected plain studio backdrop to remove clutter and fill exposed wall, wallpaper and backdrop gaps. Floor patching changes only selected repair regions, retaining healthy floor texture and shadows. Detected mat edges can be reconstructed over exposed tiles/tape; large or uncertain fills are flagged for review. People and supporting surfaces are protected. Highly textured scenes, conflicting foreground masks or insufficient visible backdrop are skipped.
