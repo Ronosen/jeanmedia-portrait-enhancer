@@ -54,6 +54,28 @@
       "licenseFile": "BiRefNet-LICENSE",
       "declaredLicense": "MIT",
       "approval": "User authorized free open-source downloads for internal subject isolation on 2026-11-17"
+    },
+    {
+      "name": "YuNet face detection",
+      "file": "face_detection_yunet_2023mar.onnx",
+      "bytes": 232589,
+      "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+      "source": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+      "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+      "licenseFile": "YuNet-LICENSE",
+      "declaredLicense": "MIT"
+    },
+    {
+      "name": "MediaPipe Face Landmarker ONNX (478 points with irises)",
+      "file": "face_landmarker_Nx3x256x256.onnx",
+      "bytes": 4864717,
+      "sha256": "111795f8703cdeb6d0c68a9f3cc966a0f23f8786bb00f4577a11f461fc4276ac",
+      "source": "https://github.com/yakhyo/mediapipe-face-mesh-onnx/releases/download/weights/face_landmarker_Nx3x256x256.onnx",
+      "revision": "3bdf1e0d100a4c709766c051a0c9e9cdab1fed62",
+      "licenseFile": "FaceLandmarker-LICENSE",
+      "declaredLicense": "Apache-2.0",
+      "purpose": "Local eye/iris and mouth geometry; no identity recognition",
+      "approval": "User requested local teeth/eye whitening and free open-source integrations on 2026-11-19"
     }
   ],
   "automaticDownloads": false,

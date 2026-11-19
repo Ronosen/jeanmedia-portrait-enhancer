@@ -1,0 +1,13 @@
+MediaPipe Face Landmarker / Face Mesh
+Original MediaPipe models and face topology: Copyright Google / MediaPipe Authors.
+https://github.com/google-ai-edge/mediapipe
+
+ONNX model export and ROI inference convention:
+Copyright 2026 Yakhyokhuja Valikhujaev.
+https://github.com/yakhyo/mediapipe-face-mesh-onnx
+Revision 3bdf1e0d100a4c709766c051a0c9e9cdab1fed62
+
+Licensed under Apache License 2.0; see FaceLandmarker-LICENSE.
+JeanMedia adapts the ROI mapping and contour indices for internal photographic
+retouch masks. It uses a separate YuNet detector, checks model integrity, limits
+editing to visible tooth enamel and sclera, and excludes iris regions.

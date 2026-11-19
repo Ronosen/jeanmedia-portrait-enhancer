@@ -9,12 +9,15 @@ from studio import clean_studio
 
 
 def auto_edit(image, preview, export=False):
+    original_image, original_preview = image, preview
     from neural import model_session
     model_session.cache_clear()
     image, preview, plan = clean_studio(
         image, preview, export=export, floor_mode="patch")
     floor = plan["floorRepairs"]
-    plan['processingRevision']=15
+    plan['processingRevision']=16
+    from portrait_enhance import prepare
+    plan['portraitEnhancement']=prepare(original_image, original_preview)
     plan["assessment"] = {
         "version": 1,
         "floorAction": "repair" if floor["count"] else "preserve",

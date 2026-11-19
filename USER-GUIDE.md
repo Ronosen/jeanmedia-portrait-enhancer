@@ -2,6 +2,14 @@
 
 Open or drop one or more JPEG, PNG or TIFF photographs, then press **Auto Edit**. Photos are processed sequentially on this computer. Original files are never overwritten.
 
+New edits also deepen faded neutral blacks, add gentle vibrance, and brighten
+visible teeth and eye whites using internal face and iris masks. Skin colours,
+lips, dark tooth gaps, pupils and irises are protected from whitening. Small,
+closed, obscured or uncertain features are left alone. Colour finishing improves
+the supplied photo; exact original material colours require a calibrated reference.
+These settings are saved with the edit and used for preview, inspection and export.
+Older projects retain their previous finishing until Auto Edit is run again.
+
 Select a photo in the queue to view it. Scroll the mouse wheel inside the picture area to zoom toward the pointer, then drag to pan. **Fit** resets the view; switching photos also resets it. The before/after comparison stays aligned while zooming. Press **100%** or double-click a part of the image for original-resolution inspection. Undo/Redo are per photo. Auto Edit retries unfinished or undone items.
 
 A **Needs review** result requires your approval before saving. An error means cleanup stopped; the photo has not been successfully edited. Protecting an uncertain seat or subject takes priority over filling that area. Large or complex floor reconstructions require review; insufficient context can still prevent repair. Inspect hair, hands, shoes, seats, shadows and filled areas before approving.

@@ -61,7 +61,10 @@ def correction(preview):
     return np.rint(np.clip(toned, 0, 1) * 255).astype(np.uint8)
 
 
-def apply_correction(image, lut):
+def apply_correction(image, lut, portrait=None):
+    if portrait is not None:
+        from portrait_enhance import apply
+        return apply(image, portrait)
     result = Image.new(image.mode, image.size)
     for y in range(0, image.height, 512):
         end = min(y + 512, image.height)
@@ -244,6 +247,10 @@ def main():
         from local_masks import apply as apply_local_masks
         preview=apply_local_masks(preview,studio_plan)
         if render_full:image=apply_local_masks(image,studio_plan)
+    portrait = studio_plan.get('portraitEnhancement') if studio_plan else None
+    if portrait is not None:
+        from portrait_enhance import validate
+        validate(portrait, original_preview)
     review = []
     if studio_plan:
         review = list(studio_plan.get("review", []))
@@ -261,7 +268,7 @@ def main():
         if review and not args.approved:
             raise ValueError("Review and approve this edit before saving.")
         progress("Saving full resolution", 85)
-        finished = apply_correction(clean_backdrop(image, mask), lut) if lut is not None else image
+        finished = apply_correction(clean_backdrop(image, mask), lut, portrait) if lut is not None else image
         export_photo(finished, args.output, args.dpi, args.quality)
         progress("Saved", 100)
         print(json.dumps({"saved": True, "backdropStatus": backdrop_status,
@@ -273,10 +280,10 @@ def main():
         if min(x, y) < 0 or not 1 <= w <= 1400 or not 1 <= h <= 1400 or x+w > image.width or y+h > image.height:
             raise ValueError("Inspection region is outside the photo.")
         box = (x, y, x+w, y+h)
-        after = apply_correction(image, lut).crop(box) if lut is not None else image.crop(box)
+        after = apply_correction(image, lut, portrait).crop(box) if lut is not None else image.crop(box)
         print(json.dumps({"before": preview_url(full_original.crop(box)), "after": preview_url(after)}))
     else:
-        after = apply_correction(clean_backdrop(preview, mask), lut) if lut is not None else preview
+        after = apply_correction(clean_backdrop(preview, mask), lut, portrait) if lut is not None else preview
         before = preview_url(original_preview)
         print(json.dumps({"width": image.width, "height": image.height, "frames": frames,
                           "before": before, "after": preview_url(after) if args.enhance or args.remove_edge_equipment or equipment_plan or studio_plan else before,

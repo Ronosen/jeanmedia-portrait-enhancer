@@ -236,3 +236,19 @@ and original file hashes. Optional QA reconstruction reuse requires identical
 render inputs, model/runtime provenance and rendering dependencies; the pipeline
 still executes planning, compositing and native export for every source. Changed
 inputs run reconstruction again. QA artifacts and photo caches remain untracked.
+
+## Portrait colour and feature finishing — revision 16
+
+After cleanup, new plans measure the source colour distribution and locate faces
+using pinned local YuNet and MediaPipe Face Landmarker ONNX models. The original
+native-resolution face crops supply tooth-enamel and sclera masks; iris geometry,
+mouth aperture, brightness and colour checks exclude pupils, lips and dark gaps.
+The saved, source-bound masks replay without rerunning detection during exports.
+
+Colour finishing uses a shared RGB contrast curve that does not lift shadows,
+a gentle toe for neutral black cloth/backdrops, and bounded LAB chroma gain.
+Face guards and skin-colour checks limit colour shifts. It retains texture and
+does not infer true material colours from a photograph lacking a reference.
+The finishing stage is shared by preview, native export and 100% inspection;
+older plans retain their legacy tone processing. New features remain behind
+the single Auto Edit button, without exposing mask controls.

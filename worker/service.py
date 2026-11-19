@@ -91,7 +91,7 @@ def diagnostics():
         except (OSError, ValueError, subprocess.TimeoutExpired):
             pass
     tests = []
-    for name in ("human_segmentation_pphumanseg_2023mar.onnx", "u2netp.onnx", "yolox_nano.onnx"):
+    for name in ("human_segmentation_pphumanseg_2023mar.onnx", "u2netp.onnx", "yolox_nano.onnx", "face_detection_yunet_2023mar.onnx", "face_landmarker_Nx3x256x256.onnx"):
         path = MODELS/name
         try:
             model = session(path)

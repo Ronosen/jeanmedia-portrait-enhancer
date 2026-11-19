@@ -98,7 +98,7 @@ for src in sources:
   plan['review']=list(dict.fromkeys(plan.get('review',[])+preflight['warnings']))
   (root/(src.stem+'-plan.json')).write_text(json.dumps(plan),encoding='utf-8')
   change_mask(plan).save(root/(src.stem+'-mask.png'))
-  lut=correction(p);finished=apply_correction(out if preview_only else full,lut)
+  lut=correction(p);finished=apply_correction(out if preview_only else full,lut,plan.get('portraitEnhancement'))
   target=root/(src.stem+'-edited.png');export_photo(finished,target,300)
   cache_pixel_differences=None
   if cache_hit[0] and entry.get('output'):
