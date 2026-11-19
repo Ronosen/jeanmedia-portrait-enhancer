@@ -7,6 +7,15 @@ from floor import apply_floor_patches, decode_mask, plan_floor_patches, validate
 
 
 class FloorPatchTests(unittest.TestCase):
+    def test_diagonal_scuff_uses_oriented_width_without_removing_broad_reflection(self):
+        import cv2
+        rgb=np.full((400,300,3),55,np.uint8)
+        cv2.line(rgb,(30,300),(110,330),(85,85,85),1)
+        cv2.ellipse(rgb,(225,310),(25,15),0,0,360,(68,68,68),-1)
+        plan=plan_floor_patches(rgb,np.zeros((400,300),bool),.6,context=True)
+        mask=decode_mask(plan['defects'],(400,300))
+        self.assertTrue(mask[315,70]);self.assertFalse(mask[310,225])
+
     def test_faint_scuff_is_repaired_but_gradient_and_subject_are_preserved(self):
         rgb=np.full((300,240,3),50,np.uint8)
         for y in range(180,300):rgb[y]+=np.uint8((y-180)//15)

@@ -109,7 +109,14 @@ def plan_floor_patches(rgb, protected, floor, context=False):
     for label in range(1, count):
         x, y, w, h, area = stats[label]
         compact=area<=90 and w<=20 and h<=20
-        scratch=context and area<=240 and max(w,h)<=64 and min(w,h)<=6
+        scratch=False
+        if context and area<=600 and max(w,h)<=120:
+            yy,xx=np.nonzero(labels[y:y+h,x:x+w]==label)
+            if len(xx)>=3:
+                sides=cv2.minAreaRect(np.column_stack((xx,yy)).astype(np.float32))[1]
+                # Measure width across the scratch, not its axis-aligned box:
+                # a thin diagonal mark can have a large bounding-box height.
+                scratch=max(sides)>=3 and min(sides)<=5 and area/max(sides)<=6
         if not (3 <= area and (compact or scratch) and x >= 8
                 and y >= 8 and x+w+8 < width and y+h+8 < height):
             continue
