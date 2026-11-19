@@ -252,3 +252,11 @@ does not infer true material colours from a photograph lacking a reference.
 The finishing stage is shared by preview, native export and 100% inspection;
 older plans retain their legacy tone processing. New features remain behind
 the single Auto Edit button, without exposing mask controls.
+
+## Noise-aware detail finishing — revision 17
+
+Original-resolution patches measure noise before resizing. The saved finishing
+plan controls a small bilateral filter and thresholded luminance sharpening.
+Face regions receive less sharpening, hard edges cannot exceed local extrema,
+and overlapping tiles prevent processing seams. No face restoration or new
+image detail is generated. Plans without detail settings keep revision-16 output.

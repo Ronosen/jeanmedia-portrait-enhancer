@@ -99,7 +99,10 @@ def plan_floor_patches(rgb, protected, floor, context=False):
     available[:min(height, row + clearance)] = False
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     smooth = cv2.medianBlur(gray, 11)
-    defect = (cv2.absdiff(gray, smooth) > 18) & available
+    residual = cv2.absdiff(gray, smooth)
+    noise = float(np.median(residual[available])) * 1.4826 if available.any() else 0.
+    threshold = max(8., min(24., noise * 4)) if context else 18
+    defect = (residual > threshold) & available
     count, labels, stats, _ = cv2.connectedComponentsWithStats(defect.astype(np.uint8))
     repairs = np.zeros((height, width), np.uint8)
     patches = 0
@@ -114,7 +117,13 @@ def plan_floor_patches(rgb, protected, floor, context=False):
         core = labels[region] == label
         expanded = cv2.dilate(core.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)
         samples = rgb[region][~expanded].astype(float)
-        if guard[region].any() or samples.std(axis=0).max() > 7:
+        # Other tiny scuffs should not make an otherwise healthy donor ring
+        # look like a textured surface. Use its central distribution, while
+        # still rejecting patterned floors and broad reflection boundaries.
+        if context and len(samples):
+            lo,hi=np.percentile(samples,[10,90],axis=0)
+            samples=samples[np.all((samples>=lo)&(samples<=hi),axis=1)]
+        if guard[region].any() or not len(samples) or samples.std(axis=0).max() > (10 if context else 7):
             continue
         repairs[region][expanded] = 255
         patches += 1

@@ -7,6 +7,17 @@ from floor import apply_floor_patches, decode_mask, plan_floor_patches, validate
 
 
 class FloorPatchTests(unittest.TestCase):
+    def test_faint_scuff_is_repaired_but_gradient_and_subject_are_preserved(self):
+        rgb=np.full((300,240,3),50,np.uint8)
+        for y in range(180,300):rgb[y]+=np.uint8((y-180)//15)
+        rgb[230:232,40:65]+=12
+        protected=np.zeros((300,240),bool);protected[210:260,120:160]=True
+        rgb[230:232,125:150]+=12
+        plan=plan_floor_patches(rgb,protected,.55,context=True)
+        mask=decode_mask(plan['defects'],protected.shape)
+        self.assertTrue(mask[230,50]);self.assertFalse(mask[protected].any())
+        self.assertFalse(mask[260,30]);self.assertLess((mask>0).mean(),.01)
+
     def test_measured_mat_extension_reaches_shoes_without_selecting_them(self):
         from floor import close_guard_gaps
         protected=np.zeros((400,300),bool);protected[340:376,130:170]=True

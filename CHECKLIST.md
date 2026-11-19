@@ -6,9 +6,9 @@
 
 **Current product decision:** Keep the one-button **Auto Edit** interface requested by the user. Checklist proposals for multiple modes, dashboards, toggles and manual tools remain pending design decisions; they do not override that choice. Significant replacements still require explicit approval. Keep technical explanations out of the editing interface.
 
-**Current gaps:** Advanced generative reconstruction, reliable large/textured floor repair, semantic body-part/hair masks, manual brushes, major-prop replacement, custom sizing/upscaling, complete license clearance, a signed installer and broad human acceptance remain incomplete. Prop-surface healing is limited to small isolated marks on recognised furniture. Three of the 16 local originals still skip cleanup because protection or backdrop fitting is uncertain. Do not check those acceptance items.
+**Current gaps:** Difficult reconstructed edges, ambiguous supports and textured floor repair still require visual review. Manual editing modes are intentionally deferred under the one-button interface. Custom sizing/upscaling, complete commercial license clearance, a signed installer and broad client acceptance are not complete. See the dated implementation updates below; early checklist items are not a claim that every scene is solved.
 
-**Verification:** See [ACCEPTANCE.md](ACCEPTANCE.md), [QA-REPORT.json](QA-REPORT.json), [HARDWARE-AUDIT.json](HARDWARE-AUDIT.json), [MODEL-DECISIONS.md](MODEL-DECISIONS.md), [USER-GUIDE.md](USER-GUIDE.md) and [API.md](API.md). The regression suite has 36 tests; frontend workflow checks use real Python processing through mocked Tauri IPC. Native build and portable-runtime checks are distinct from a clean-machine release test.
+**Verification:** Worker regression tests, native build checks and packaged-runtime photo audits are separate from clean-machine and client acceptance. Do not mark an output visually perfect just because processing and preservation checks pass.
 
 **Evidence:** `src/main.tsx` (single-button UI, import, comparison, undo/redo, save), `src-tauri/src/main.rs` (Python IPC), `worker/photo.py` (import, tonal correction, color-managed separate export), `worker/adaptive.py` (per-photo orchestration), `worker/studio.py` and `worker/floor.py` (protected backdrop and localized floor repair), and worker regression tests. Model licenses are included, but this is not a completed commercial license audit.
 
@@ -256,3 +256,13 @@ Evidence and per-image remaining inspection points: `qa/folder-v6-final/REVIEW.m
 - Real-ESRGAN: https://github.com/xinntao/Real-ESRGAN
 
 **Next acceptance step:** Resolve the three skipped originals and advanced floor reconstruction, then expand to 30 varied consented originals and collect full-resolution human quality scores. Complete model/native-dependency license provenance and signed packaging, and verify installation on a separate Windows machine. UI proposals for multiple modes/manual controls remain pending decisions under the one-button product requirement.
+
+## Client finishing update — 2026-11-20
+- [x] Internal face landmarks protect irises and lips during restrained teeth/sclera whitening.
+- [x] Adaptive chroma and neutral-black finishing, with continuous skin protection.
+- [x] Measure noise on native-resolution source patches; reduce sharpening on noisy photos.
+- [x] Bounded detail enhancement with local-extrema protection and mild edge-aware noise reduction.
+- [x] Save finishing parameters for deterministic export and preserve older project rendering.
+- [ ] Certify every reconstruction as ready for delivery without visual review.
+
+These are implemented operations, not guarantees of recovering clipped highlights, motion blur or missing original detail. Seven-photo packaged-build acceptance results are recorded separately after execution.

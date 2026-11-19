@@ -1,6 +1,13 @@
 # JeanMedia user guide
 
+In the development folder, double-click **JeanMedia.exe**. It opens the selected
+portable build in the adjacent `release` folder. In a downloaded portable ZIP,
+extract the whole folder and double-click its **jeanmedia.exe**; keep the bundled
+Python, worker and dependencies beside it.
+
 Open or drop one or more JPEG, PNG or TIFF photographs, then press **Auto Edit**. Photos are processed sequentially on this computer. Original files are never overwritten.
+
+New edits measure native-resolution noise and apply restrained noise reduction and detail sharpening without inventing facial detail. Sharpening is reduced in noisy areas and face regions.
 
 New edits also deepen faded neutral blacks, add gentle vibrance, and brighten
 visible teeth and eye whites using internal face and iris masks. Skin colours,
@@ -22,7 +29,7 @@ A `.jeanmedia` project stores the source reference and hash, repair layers, mode
 
 Print width/height in cm are calculated from original pixels and selected PPI. Changing PPI metadata creates no extra image detail. Outputs are intentionally converted to sRGB. Custom crop, resizing, AI upscaling and soft proofing are not implemented.
 
-If a photo fails, select it to read the short error and press Auto Edit to retry. Cancel stops the current worker and remaining queue entries. No cloud upload or model download happens during editing. Hardware checks load the three small protection/detection models and verify the reconstruction model checksum. The approved local LaMa model reconstructs substantial holes; tiny smooth-surface marks use local healing first. Model loading and processing can take tens of seconds or longer on this CPU. The default CPU preset is appropriate for the audited 16 GB RAM / AMD 2 GB GPU system. CUDA is used only if explicitly configured and an ONNX CUDA provider is installed; otherwise CPU remains available.
+If a photo fails, select it to read the short error and press Auto Edit to retry. Cancel stops the current worker and remaining queue entries. No cloud upload or model download happens during editing. Hardware checks load the five small protection/detection/face models and verify the reconstruction model checksum. The approved local LaMa model reconstructs substantial holes; tiny smooth-surface marks use local healing first. Model loading and processing can take tens of seconds or longer on this CPU. The default CPU preset is appropriate for the audited 16 GB RAM / AMD 2 GB GPU system. CUDA is used only if explicitly configured and an ONNX CUDA provider is installed; otherwise CPU remains available.
 
 Technical crash logs contain only timestamp, exception type and worker version, in the current user's temporary `JeanMedia/errors.jsonl`. No image data or source filename is logged. Photographs and masks are not automatically persisted outside a project/export you choose to save.
 

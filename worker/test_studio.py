@@ -91,7 +91,7 @@ class StudioBackdropTests(unittest.TestCase):
                 full,after,plan,status=auto_edit(image,image,True)
             self.assertEqual(status,'Needs review')
             self.assertEqual(plan['adaptiveRevision'],3)
-            self.assertEqual(plan['processingRevision'],16)
+            self.assertEqual(plan['processingRevision'],17)
             self.assertEqual(image.tobytes(),after.tobytes())
             self.assertEqual(change_mask(plan).getbbox(),None)
             _,replay,_=clean_studio(image,image,plan,export=True)
@@ -249,4 +249,3 @@ class StudioBackdropTests(unittest.TestCase):
         plan, alpha, _ = prepare_backdrop(np.asarray(image), probability, objects)
         rendered = np.asarray(render_backdrop(image, alpha, plan))
         self.assertLess(np.abs(rendered[140, 100].astype(float) - [150, 155, 160]).max(), 8)
-

@@ -23,6 +23,8 @@ def prepare(image, preview):
                   'gamma':float(np.clip(1+(median-145)/1000,1,1.08)),
                   'vibrance':float(np.clip((72-np.median(np.ptp(rgb.astype(float),axis=2)))/500,.04,.14))},
           'faces':[]}
+    from detail_finish import measure
+    plan['detail']=measure(image)
     if image.mode!='RGB':return plan
     for face in detect(rgb):
         face=face.copy();face[:14:2]*=image.width/w;face[1:14:2]*=image.height/h
@@ -54,6 +56,12 @@ def validate(plan, preview):
     tone=plan.get('tone',{})
     for key,limits in [('contrast',(1,1.2)),('gamma',(1,1.1)),('vibrance',(0,.2))]:
         if not isinstance(tone.get(key),(int,float)) or not np.isfinite(tone[key]) or not limits[0]<=tone[key]<=limits[1]:raise ValueError('Invalid portrait colour settings')
+    detail=plan.get('detail')
+    if detail is not None:
+        if detail.get('version')!=1:raise ValueError('Invalid detail version')
+        for key,limits in [('noise',(0,30)),('denoise',(0,.45)),('sharpen',(0,.35))]:
+            value=detail.get(key)
+            if not isinstance(value,(int,float)) or not np.isfinite(value) or not limits[0]<=value<=limits[1]:raise ValueError('Invalid detail settings')
     faces=plan.get('faces')
     if not isinstance(faces,list) or len(faces)>32:raise ValueError('Invalid face masks')
     for face in faces:
@@ -114,11 +122,15 @@ def apply(image, plan):
             old=canvas.crop(tuple(destination));canvas.paste(Image.fromarray(np.maximum(np.asarray(old),np.asarray(mask))),tuple(destination[:2]))
     result=Image.new(image.mode,image.size)
     for y in range(0,image.height,256):
-        box=(0,y,image.width,min(y+256,image.height));tile=image.crop(box)
+        top=max(0,y-8);end=min(y+256,image.height)
+        box=(0,top,image.width,min(end+8,image.height));tile=image.crop(box)
         areas={name:np.asarray(mask.crop(box),dtype=np.float32)/255 for name,mask in masks.items()}
         rgb=np.asarray(tile.convert('RGB'))
         toned=color_tile(rgb,plan['tone'],areas['guard'])
+        if plan.get('detail'):
+            from detail_finish import apply as finish_detail
+            toned=finish_detail(toned,plan['detail'],areas['guard'])
         finished=Image.fromarray(whiten(toned,areas['teeth'],areas['eyes']))
         if image.mode=='RGBA':finished.putalpha(tile.getchannel('A'))
-        result.paste(finished,(0,y))
+        result.paste(finished.crop((0,y-top,image.width,end-top)),(0,y))
     return result
