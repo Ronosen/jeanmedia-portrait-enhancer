@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { PhotoViewport } from "./PhotoViewport";
 import "./style.css";
 
 type Plan = { review?: string[]; [key: string]: unknown };
@@ -155,7 +156,7 @@ function App() {
       </div>}
       <section className="editor" aria-label="Photo workspace">
         {preview ? <>
-          <div className="stage"><div className="comparison" onDoubleClick={e => {
+          <PhotoViewport key={file.source}><div className="comparison" onDoubleClick={e => {
             const box=e.currentTarget.getBoundingClientRect();
             const w=Math.min(1000,preview.width),h=Math.min(800,preview.height);
             const x=Math.max(0,Math.min(preview.width-w,Math.round((e.clientX-box.left)/box.width*preview.width-w/2)));
@@ -165,7 +166,7 @@ function App() {
           }}>
             <img src={preview.after} alt={file.edited ? "Edited photo" : "Original photo"} />
             {file.edited && <><img className="before" src={preview.before} alt="Original photo" style={{clipPath:`inset(0 ${100-split}% 0 0)`}} />{split>0 && split<100 && <div className="divider" style={{left:`${split}%`}} />}</>}
-          </div></div>
+          </div></PhotoViewport>
           <div className="comparison-controls">{file.edited && <><span>Before</span><input aria-label="Before and after" type="range" min={0} max={100} value={split} onChange={e => setSplit(Number(e.target.value))} /><span>After</span></>}
             <button disabled={!!busy} onClick={() => void run("Inspecting…", async () => {
               const w=Math.min(1000,preview.width),h=Math.min(800,preview.height);

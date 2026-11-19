@@ -15,6 +15,12 @@ header strong { font-size: 20px; }
 .empty { align-content: center; }
 .empty h1 { margin: 0; }
 .stage { padding: 12px; }
+.photo-viewport { position: relative; }
+.photo-viewport .stage { overflow: hidden; touch-action: none; }
+.zoom-content { max-width: 100%; transform-origin: center; user-select: none; }
+.stage.zoomed { cursor: grab; }
+.stage.zoomed:active { cursor: grabbing; }
+.fit-photo { position: absolute; right: 12px; bottom: 12px; }
 .comparison { position: relative; width: fit-content; max-width: 100%; }
 .comparison img { display: block; max-width: 100%; max-height: max(300px, calc(100vh - 310px)); }
 .before, .divider { position: absolute; top: 0; }
