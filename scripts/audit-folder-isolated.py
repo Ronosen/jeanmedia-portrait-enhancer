@@ -16,7 +16,7 @@ bundle=os.environ.get('JEANMEDIA_QA_BUNDLE','.')
 rows=json.loads((root/'run.json').read_text()) if (root/'run.json').exists() else []
 retest=set(os.environ.get('JEANMEDIA_QA_RETEST','').split(','))
 rows=[r for r in rows if not r.get('error') and Path(r['name']).stem not in retest]
-done={r['name'] for r in rows};pending=[p for p in sources if p.name not in done]
+done={str(Path(r['source']).resolve()) for r in rows if r.get('source')};pending=[p for p in sources if str(p.resolve()) not in done]
 def run_source(source):
  print('START',source.name,flush=True)
  folder=root/source.stem
@@ -24,9 +24,10 @@ def run_source(source):
  while folder.exists():
   attempt+=1;folder=root/(source.stem+'-retry'+str(attempt))
  with (root/(folder.name+'.log')).open('w') as log:
-  process=subprocess.run([sys.executable,'scripts/audit-review.py',bundle,str(folder),source.stem],env=env,stdout=log,stderr=subprocess.STDOUT)
+  source_env=dict(env);source_env['JEANMEDIA_QA_SOURCE_DIR']=str(source.parent.resolve())
+  process=subprocess.run([sys.executable,'scripts/audit-review.py',bundle,str(folder),str(source.resolve())],env=source_env,stdout=log,stderr=subprocess.STDOUT)
  try:row=json.loads((folder/'run.json').read_text())[0]
- except Exception:row={'name':source.name,'error':'Worker did not complete','exitCode':process.returncode}
+ except Exception:row={'name':source.name,'source':str(source.resolve()),'error':'Worker did not complete','exitCode':process.returncode}
  row['artifactDirectory']=str(folder)
  print('DONE',source.name,row.get('error','OK'),flush=True)
  return row

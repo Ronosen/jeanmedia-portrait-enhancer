@@ -6,6 +6,33 @@ from separation import anchored_alpha,composite,prepare,render,replay,trim_suppo
 from backdrop_finish import pack,unpack
 
 class SeparationTests(unittest.TestCase):
+ def test_shaded_top_can_match_the_fitted_background_but_still_belong_to_the_seat(self):
+  from support_geometry import attached_props
+  rgb=np.full((300,240,3),25,np.uint8);rgb[:,:16]=160
+  support=np.zeros((300,240),bool);support[160:280,10:180]=True;rgb[support]=230;rgb[140:160,12:170]=170
+  alpha=np.zeros((300,240),np.float32);alpha[110:145,90:120]=1;rgb[alpha>0]=(140,80,60)
+  props=attached_props(rgb,alpha,support,np.full_like(rgb,170,dtype=float))
+  self.assertTrue(props[150,50]);self.assertFalse(props[120,12])
+
+ def test_inset_prop_search_recovers_a_shaded_top_joined_to_an_edge_wall(self):
+  from support_geometry import attached_props
+  rgb=np.full((300,240,3),25,np.uint8);rgb[:,:16]=160
+  support=np.zeros((300,240),bool);support[160:280,10:180]=True;rgb[support]=230
+  rgb[140:160,12:170]=170
+  alpha=np.zeros((300,240),np.float32);alpha[110:145,90:120]=1;rgb[alpha>0]=(140,80,60)
+  props=attached_props(rgb,alpha,support,np.full_like(rgb,25,dtype=float))
+  self.assertTrue(props[150,50]);self.assertFalse(props[120,12])
+
+ def test_frame_cleaning_keeps_a_confirmed_seat_back_above_its_measured_front(self):
+  rgb=np.full((360,300,3),25,np.uint8);rgb[:,:40]=160;rgb[200:310,20:110]=230;rgb[180:200,30:110]=230
+  alpha=np.zeros((360,300),np.float32);alpha[80:190,100:170]=1;rgb[alpha>0]=70
+  rough=np.zeros((360,300),np.uint8);rough[200:310,20:110]=255;rough[180:200,30:110]=255
+  measured=np.zeros_like(rough);measured[200:310,20:110]=255
+  plan={'coefficients':[[25]*3]+[[0]*3]*5,'low':[25]*3,'high':[25]*3,'floor':1,
+        'layers':{'shape':[360,300],'support':pack(rough),'geometrySupport':pack(measured)}}
+  prepare(plan,rgb,alpha,alpha,[{'class':0,'confidence':.9,'box':[100,80,170,190]}],alpha,alpha)
+  self.assertEqual(unpack(plan['layers']['foregroundAlpha'],[360,300])[190,35],255)
+
  def test_seat_left_edge_excludes_a_nearby_bright_wall_fragment(self):
   rgb=np.full((240,200,3),25,np.uint8);rgb[:,:60]=130;rgb[110:220,60:170]=230
   support=np.zeros((240,200),bool);support[110:220,40:170]=True

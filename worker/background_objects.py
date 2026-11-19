@@ -3,13 +3,14 @@ import cv2
 import numpy as np
 
 def edge_clutter(rgb,protected,floor,removed_wall=None):
- h,w=protected.shape;result=np.zeros((h,w),np.uint8)
+ h,w=protected.shape;result=np.zeros((h,w),np.uint8);small_objects=np.zeros((h,w),np.uint8)
  gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY)
  edges=cv2.morphologyEx(cv2.Canny(gray,8,24),cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
  contours,_=cv2.findContours(edges,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
  # A box cut off by the frame has no closed contour. Recover its neutral bright
  # surface separately; broad white backdrops fail the size/position checks.
  bright=(gray>110)&(np.ptp(rgb,axis=2)<50)&~protected
+ full_count,full_components,full_stats,_=cv2.connectedComponentsWithStats(bright.astype(np.uint8))
  floor_pixels=gray[round(floor*h):][~protected[round(floor*h):]]
  dark_floor=len(floor_pixels)>0 and np.median(floor_pixels)<100
  for lower in (False,True):
@@ -18,7 +19,10 @@ def edge_clutter(rgb,protected,floor,removed_wall=None):
   count,components,box_stats,_=cv2.connectedComponentsWithStats(candidate.astype(np.uint8))
   for i in range(1,count):
    x,y,bw,bh,area=box_stats[i]
-   thin_panel=lower and dark_floor and 1<=bw<=w*.03 and h*.05<bh<h*.3 and area>h*w*.0001
+   thin_panel=lower and dark_floor and 1<=bw<=w*.03 and bh>h*.05 and area>h*w*.0001
+   if thin_panel:
+    linked=np.unique(full_components[components==i]);linked=linked[linked>0]
+    thin_panel=any(full_stats[j,cv2.CC_STAT_TOP]<floor*h-h*.02 for j in linked)
    box=w*.03<bw<w*.28 and h*.03<bh<h*.3 and h*w*.002<area<h*w*.08
    nearby=gray[min(h-1,y+bh):min(h,y+bh+max(4,round(h*.02))),max(0,x-round(w*.05)):min(w,x+bw)]
    local_box=box and nearby.size and float(np.median(gray[components==i]))-float(np.median(nearby))>30
@@ -26,10 +30,22 @@ def edge_clutter(rgb,protected,floor,removed_wall=None):
     part=(components==i).astype(np.uint8)
     outline,_=cv2.findContours(part,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
     cv2.fillPoly(result,[cv2.convexHull(np.concatenate(outline))],255)
+ people_rows=np.nonzero(protected)[0]
+ lower_reference=float(np.median(people_rows)) if len(people_rows) else floor*h
  for contour in contours:
   hull=cv2.convexHull(contour);area=cv2.contourArea(hull)
-  if not h*w*.003<area<h*w*.08:continue
   x,y,bw,bh=cv2.boundingRect(hull)
+  low_enough=y>lower_reference
+  flat=(h*w*.0004<area<h*w*.006 and bw>w*.03 and max(8,h*.008)<bh<h*.06 and 1.4<bw/max(1,bh)<6)
+  if flat and low_enough and (x<w*.22 or x+bw>w*.78) and cv2.contourArea(contour)>area*.65:
+   polygon=cv2.approxPolyDP(hull,cv2.arcLength(hull,True)*.025,True)
+   if len(polygon) in (4,5):
+    part=np.zeros((h,w),np.uint8);cv2.fillPoly(part,[polygon],1);part=part>0
+    ring=(cv2.dilate(part.astype(np.uint8),np.ones((9,9),np.uint8))>0)&~part&~protected
+    projected=float(protected[:,x:x+bw].any(axis=0).mean())
+    if ring.any() and not protected[part].any() and projected<.2 and np.median(np.ptp(rgb[part],axis=1))<45 and np.median(gray[ring])<100 and np.median(gray[part])>max(50,np.median(gray[ring])+25):
+     small_objects |= cv2.dilate(part.astype(np.uint8),np.ones((9,9),np.uint8))*255
+  if not h*w*.003<area<h*w*.08:continue
   if y<h*.48 or bw<w*.05 or bh<h*.04 or not .3<bw/max(1,bh)<3:continue
   # Floor tiles and rectangular reflections are surface texture, not boxes.
   # A background support/object must rise above the inferred floor boundary.
@@ -87,5 +103,5 @@ def edge_clutter(rgb,protected,floor,removed_wall=None):
  result[np.isin(labels,linked[linked>0])]=255
  # Include desaturated cloth borders and cast-colour halos, otherwise the
  # reconstruction network sees those old fragments as valid donor context.
- result=cv2.dilate(result,np.ones((max(3,round(min(h,w)*.05))|1,)*2,np.uint8));result[protected]=0
+ result=cv2.dilate(result,np.ones((max(3,round(min(h,w)*.05))|1,)*2,np.uint8));result |= small_objects;result[protected]=0
  return result>0

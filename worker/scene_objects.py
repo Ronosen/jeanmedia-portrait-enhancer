@@ -3,6 +3,58 @@ import cv2
 import numpy as np
 
 
+def frame_panel_leaks(rgb,reference,person,support,matte=None,with_extent=False):
+    """Find tall frame-connected wall material using independent person evidence."""
+    h,w=support.shape;result=np.zeros((h,w),bool)
+    extent=np.zeros((h,w),bool)
+    if person is None:return (result,extent) if with_extent else result
+    rows=np.flatnonzero((person>.5).any(axis=1))
+    if not len(rows):return (result,extent) if with_extent else result
+    human=person>.5
+    if matte is not None:human=(person>.9)|(matte>.02)
+    support=cv2.dilate(support.astype(np.uint8),np.ones((1,max(3,round(w*.02))|1),np.uint8))>0
+    gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY)
+    edges=cv2.dilate(cv2.Canny(gray,15,40),np.ones((3,3),np.uint8))>0
+    neutral=np.ptp(rgb,axis=2)<45
+    material=neutral&(rgb.mean(axis=2)-reference.mean(axis=2)>45)
+    n,labels,stats,_=cv2.connectedComponentsWithStats((material&~edges&~human&~support).astype(np.uint8))
+    candidates=[];anchors={}
+    for i in range(1,n):
+        x,y,bw,bh,area=stats[i]
+        if not (x<w*.05 or x+bw>w*.95) or bw>w*.16 or bh<h*.05 or area<h*w*.001:continue
+        part=labels==i
+        if float(person[part].mean())>.1:continue
+        brightness=float(np.median(rgb[part].mean(axis=1)))
+        side=0 if x<w*.05 else 1
+        candidates.append((i,side,brightness))
+        if y<rows[0]:anchors[side]=max(anchors.get(side,0),brightness)
+    for i,side,brightness in candidates:
+        if side not in anchors or brightness<max(80,anchors[side]*.4):continue
+        # Continuation fragments are accepted only on the anchored side and
+        # on observed bright material. Dark gowns never enter a filled hull.
+        part=cv2.dilate((labels==i).astype(np.uint8),np.ones((7,7),np.uint8))>0
+        result |= part&neutral&(rgb.mean(axis=2)>max(80,brightness*.4))&(rgb.mean(axis=2)-reference.mean(axis=2)>35)
+        x,y,bw,bh,_=stats[i]
+        outer=np.zeros((h,w),bool)
+        if side==0:outer[y:y+bh,:x+bw]=True
+        else:outer[y:y+bh,x:]=True
+        # Wallpaper outside a confirmed white backing strip belongs to the
+        # same exposed room edge. Dark cloth and independent people stay out.
+        result |= outer&(rgb.mean(axis=2)>max(80,brightness*.4))&(person<.2)&(np.max(np.abs(rgb.astype(float)-reference),axis=2)>35)
+        if side==0:extent[:y+bh,:x+bw]=True
+        else:extent[:y+bh,x:]=True
+    # All donor fragments of this measured panel must be removed from the
+    # background plate, including gaps between its colour components. Reject
+    # foreground only where independent source/material evidence agrees.
+    for side,brightness in anchors.items():
+        side_extent=extent.copy()
+        if side==0:side_extent[:,w//2:]=False
+        else:side_extent[:,:w//2]=False
+        result |= side_extent&(rgb.mean(axis=2)>max(80,brightness*.4))&(np.max(np.abs(rgb.astype(float)-reference),axis=2)>35)
+    result &= ~human&~support
+    return (result,extent) if with_extent else result
+
+
 def corner_equipment(rgb,protected):
     """Select dark overhead gear bounded by a measured diagonal source edge."""
     h,w=protected.shape;gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY)

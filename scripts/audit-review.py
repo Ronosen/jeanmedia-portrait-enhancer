@@ -33,22 +33,44 @@ if os.environ.get('JEANMEDIA_QA_MATTE_CACHE'):
 
 root.mkdir(parents=True,exist_ok=False)
 rows=[]
+reconstruction_cache={}
+if os.environ.get('JEANMEDIA_QA_RECONSTRUCTION_INDEX'):
+ from reconstruction_cache import dependency_key,input_key
+ reconstruction_cache=json.loads(Path(os.environ['JEANMEDIA_QA_RECONSTRUCTION_INDEX']).read_text())
+ render_dependency=dependency_key(bundle)
 preview_only=os.environ.get('JEANMEDIA_QA_PREVIEW_ONLY')=='1'
 (root/'runtime.json').write_text(json.dumps({'bundle':str(bundle),'runtime':runtime_info,
  'workerHashes':{p.name:sha256(p) for p in (bundle/'worker').glob('*.py')}},indent=2))
 sources=sorted(Path(os.environ.get('JEANMEDIA_QA_SOURCE_DIR','D:/test22')).iterdir())
 if len(sys.argv)>3:
- by_name={p.stem:p for p in sources};sources=[by_name[n] for n in sys.argv[3:] if n in by_name]
+ by_name={p.stem:p for p in sources};sources=[Path(n).resolve() if Path(n).is_file() else by_name[n] for n in sys.argv[3:] if Path(n).is_file() or n in by_name]
 for src in sources:
  if src.suffix.lower() not in {'.jpg','.jpeg','.png','.tif','.tiff'}:continue
- start=time.time();row={'name':src.name,'source':str(src)}
+ start=time.time();row={'name':src.name,'source':str(src)};render_uncached=None
  try:
   digest=sha256(src);im,frames=load_photo(src);p=im.copy();p.thumbnail((1280,1280),Image.Resampling.LANCZOS)
+  cache_hit=[False]
+  import separation
+  render_uncached=separation.render
+  entry=reconstruction_cache.get(digest)
+  cached_plan=json.loads(Path(entry['plan']).read_text()) if entry and entry['dependencyKey']==render_dependency else None
+  if cached_plan is not None:
+   import copy
+   def cached_render(source,selected,prepared):
+    candidate=copy.deepcopy(prepared);candidate['runtime']=runtime_info
+    if input_key(candidate)==entry['inputKey']:
+     for field in ('backgroundPlate','floorPlate','backdropFinish'):
+      if field in cached_plan:prepared[field]=copy.deepcopy(cached_plan[field])
+     cache_hit[0]=True
+    return render_uncached(source,selected,prepared)
+   separation.render=cached_render
   p.save(root/(src.stem+'-before.png'))
   preflight=inspect(p)
-  full,out,plan,status=auto_edit(im,p,export=not preview_only)
+  try:full,out,plan,status=auto_edit(im,p,export=not preview_only)
+  finally:separation.render=render_uncached
   check_source=p if preview_only else im;check_output=out if preview_only else full
   core_changes=0
+  anchored_core_changes=0
   if plan.get('layers',{}).get('foregroundAlpha'):
    import cv2
    from backdrop_finish import unpack
@@ -61,6 +83,15 @@ for src in sources:
     box=(0,y,check_source.width,min(check_source.height,y+256));guard=np.asarray(core.crop(box))>0
     core_changes+=int(np.count_nonzero(np.any(np.asarray(check_source.crop(box))[guard]!=np.asarray(check_output.crop(box))[guard],axis=1)))
    assert core_changes==0,('Protected source core changed',core_changes)
+   if plan['layers'].get('anchoredForegroundAlpha'):
+    anchored=unpack(plan['layers']['anchoredForegroundAlpha'],shape)
+    anchored_core=cv2.erode((anchored>=250).astype(np.uint8),np.ones((5,5),np.uint8))>0
+    if plan.get('propRepairs'):anchored_core &= decode_mask(plan['propRepairs']['mask'],tuple(shape))==0
+    anchored_core=Image.fromarray(anchored_core.astype(np.uint8)*255).resize(check_source.size,Image.Resampling.NEAREST)
+    for y in range(0,check_source.height,256):
+     box=(0,y,check_source.width,min(check_source.height,y+256));guard=np.asarray(anchored_core.crop(box))>0
+     anchored_core_changes+=int(np.count_nonzero(np.any(np.asarray(check_source.crop(box))[guard]!=np.asarray(check_output.crop(box))[guard],axis=1)))
+    assert anchored_core_changes==0,('Original anchored subject core changed',anchored_core_changes)
   selected=np.array(change_mask(plan))>0
   outside=int(np.count_nonzero(np.any(np.array(p)[~selected]!=np.array(out)[~selected],axis=1)))
   assert outside==0,('Unselected cleanup pixels changed',outside)
@@ -69,6 +100,15 @@ for src in sources:
   change_mask(plan).save(root/(src.stem+'-mask.png'))
   lut=correction(p);finished=apply_correction(out if preview_only else full,lut)
   target=root/(src.stem+'-edited.png');export_photo(finished,target,300)
+  cache_pixel_differences=None
+  if cache_hit[0] and entry.get('output'):
+   cache_pixel_differences=0
+   with Image.open(entry['output']) as previous:
+    assert previous.size==finished.size,'Cached export dimensions changed'
+    for top in range(0,finished.height,256):
+     box=(0,top,finished.width,min(finished.height,top+256))
+     cache_pixel_differences+=int(np.count_nonzero(np.any(np.asarray(previous.crop(box))!=np.asarray(finished.crop(box)),axis=2)))
+   assert cache_pixel_differences==0,('Reconstruction cache replay changed pixels',cache_pixel_differences)
   rendered=finished.copy();rendered.thumbnail((1280,1280),Image.Resampling.LANCZOS);rendered.save(root/(src.stem+'-after.png'))
   pair=Image.new('RGB',(p.width*2,p.height+28),'#222');pair.paste(p,(0,28));pair.paste(rendered,(p.width,28));d=ImageDraw.Draw(pair);d.text((10,7),src.name+' ORIGINAL',fill='white');d.text((p.width+10,7),'EDITED',fill='white');pair.save(root/(src.stem+'-compare.jpg'),quality=96)
   assert sha256(src)==digest,'Original changed'
@@ -76,8 +116,12 @@ for src in sources:
   row.update(dimensions=im.size,frames=frames,preflight=preflight,review=plan['review'],
    engine=plan['repairEngine'],outsideCleanupMaskChanges=outside,subjectCoreChangesBeforeTone=core_changes,changedFraction=float(selected.mean()),
    output=str(target),sourceSha256=digest,originalUnchanged=True,fullResolutionExport=not preview_only,
-   outputDimensions=finished.size,previewOnly=preview_only,processingRevision=plan.get('processingRevision'),status=status)
+   outputDimensions=finished.size,previewOnly=preview_only,processingRevision=plan.get('processingRevision'),status=status,
+   reconstructionCacheHit=cache_hit[0],reconstructionCacheReplayDifferences=cache_pixel_differences,
+   anchoredSubjectCoreChangesBeforeTone=anchored_core_changes)
  except Exception as error:row.update(error=str(error),trace=traceback.format_exc())
+ finally:
+  if render_uncached is not None:separation.render=render_uncached
  row['seconds']=round(time.time()-start,1);rows.append(row)
  (root/'run.json').write_text(json.dumps(rows,indent=2),encoding='utf-8')
  print(json.dumps(row),flush=True)

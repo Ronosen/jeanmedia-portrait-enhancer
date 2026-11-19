@@ -23,7 +23,7 @@ def link(path):return Path(path).resolve().as_uri()
 for source in dict.fromkeys(scope):
  name=Path(source).stem;old=baseline.get(source,{});new=candidate.get(source,{})
  findings=notes.get(name,['Visual review pending.'])
- checks={key:new.get(key) for key in ('fullResolutionExport','outputDimensions','originalUnchanged','subjectCoreChangesBeforeTone','outsideCleanupMaskChanges','processingRevision')}
+ checks={key:new.get(key) for key in ('fullResolutionExport','outputDimensions','originalUnchanged','subjectCoreChangesBeforeTone','anchoredSubjectCoreChangesBeforeTone','outsideCleanupMaskChanges','processingRevision','reconstructionCacheHit','reconstructionCacheReplayDifferences')}
  status='pending' if not new else 'processing error' if new.get('error') else 'rendered; visual review required'
  row={'source':source,'baselineError':old.get('error'),'candidateError':new.get('error'),'checks':checks,'findings':findings,'status':status,'baselineArtifacts':old.get('artifactDirectory'),'candidateArtifacts':new.get('artifactDirectory')}
  rows.append(row)

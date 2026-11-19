@@ -213,3 +213,26 @@ components truncated at the search boundary cannot become protected hulls.
 Dark props additionally need physical source-edge evidence, preventing diffuse
 wall shadows from being treated as objects. White-backdrop regressions cover
 oversized support/shadow regions and preserve the complete measured box.
+
+## Reconcile floor evidence with protected foreground — revision 15
+
+The planner validates people and contacting supports before refining the floor
+measurement. Only person detections corroborated by segmentation, detailed
+foreground inside those detections, and validated supports contribute to the
+second measurement. Floor reflections and unrelated overhead equipment cannot
+vote as people. The existing spatial consensus and backdrop coverage checks
+still apply; there is no fixed floor row or filename-specific behavior.
+
+Confirmed supports and photographed contact joins survive a successful floor
+refit. Contacting shaded seat tops can use local material and physical edge
+evidence when their colour resembles the fitted background. Frame-panel cleanup
+selects exposed background without clearing the protected foreground matte.
+Small detached floor clutter uses local contrast and a compact repair mask.
+
+The corpus audit separately compares the original anchored subject core before
+tone adjustments, so shrinking a later foreground mask cannot conceal damage.
+It also checks final foreground cores, unselected pixels, native export dimensions
+and original file hashes. Optional QA reconstruction reuse requires identical
+render inputs, model/runtime provenance and rendering dependencies; the pipeline
+still executes planning, compositing and native export for every source. Changed
+inputs run reconstruction again. QA artifacts and photo caches remain untracked.

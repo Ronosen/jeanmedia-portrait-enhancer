@@ -57,14 +57,17 @@ def anchored_alpha(alpha,person,objects):
    if region.size and (region>.5).mean()<.10:raise ValueError('Needs Review · A person is missing from the internal subject mask.')
  return result
 
-def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
+def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=None):
  from inpainting import removal_mask,frame_panels
  from studio import background_basis
  h,w=alpha.shape;yy,xx=np.mgrid[:h,:w]
  model=np.clip(background_basis(xx/max(1,w-1),yy/max(1,h-1))@np.asarray(plan['coefficients']),plan['low'],plan['high'])
  alpha=alpha.copy()
  model_alpha=alpha.copy();source_contact=np.zeros((h,w),bool);source_blend=np.zeros((h,w),np.float32)
- from scene_objects import thin_supports,detached_clutter,corner_equipment
+ from scene_objects import thin_supports,detached_clutter,corner_equipment,frame_panel_leaks
+ geometry=np.zeros((h,w),bool)
+ confirmed_support=np.zeros((h,w),bool)
+ support_evidence=unpack(plan['layers']['supportEvidence'],[h,w])>0 if plan['layers'].get('supportEvidence') else np.zeros((h,w),bool)
  metal=thin_supports(rgb,alpha,objects)
  alpha[metal]=1
  if plan['layers'].get('support'):
@@ -102,8 +105,9 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
     support[rejected]=False;alpha[rejected&(alpha<.95)]=0
   trimmed=trim_support_edges(rgb,support)
   alpha[support&~trimmed&(alpha<.95)]=0
-  support=trimmed
+  support=trimmed|support_evidence
   alpha[support]=1
+  confirmed_support=support.copy()
  if plan['layers'].get('support'):
   from support_geometry import attached_props,support_source_masks
   props=attached_props(rgb,alpha,support,model)
@@ -114,6 +118,11 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
   alpha=np.maximum(alpha,source_blend)
   alpha[source_contact]=1
  source_contact |= metal;source_blend[metal]=1
+ if plan['layers'].get('sourceContactEvidence'):
+  source_contact |= unpack(plan['layers']['sourceContactEvidence'],[h,w])>0
+  source_blend=np.maximum(source_blend,unpack(plan['layers']['sourceContactBlendEvidence'],[h,w])/255)
+  alpha=np.maximum(alpha,source_blend);alpha[source_contact]=1
+ frame_panels_leaked,frame_panel_extent=frame_panel_leaks(rgb,model,person_evidence,geometry|confirmed_support,alpha,with_extent=True)
  # Soft floor reflections are background, not part of the extracted person.
  # Keep the measured edge beside opaque people/supports; discard remote haze.
  distance=cv2.distanceTransform((alpha<.5).astype(np.uint8),cv2.DIST_L2,3)
@@ -160,6 +169,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
  clutter |= ((equipment>0)|panels)&~protected
  clutter |= orphan
  clutter |= overhead
+ clutter |= frame_panel_extent&~protected
  selected |= clutter
  layers=plan['layers'];layers['foregroundAlpha']=pack(np.rint(alpha*255).astype(np.uint8))
  layers['person']=layers['foregroundAlpha'];layers['protected']=pack(protected.astype(np.uint8)*255)
@@ -170,7 +180,9 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None):
  layers['sourceContactBlend']=pack(np.rint(source_blend*255).astype(np.uint8))
  layers['detachedClutter']=pack(orphan.astype(np.uint8)*255)
  layers['thinSupport']=pack(metal.astype(np.uint8)*255)
- plan['sceneObjects']={'detachedClutterCount':orphan_count,'thinSupportPixels':int(metal.sum()),'overheadEquipmentPixels':int(overhead.sum())}
+ layers['confirmedSupport']=pack(confirmed_support.astype(np.uint8)*255)
+ layers['anchoredForegroundAlpha']=pack(np.rint(model_alpha*255).astype(np.uint8))
+ plan['sceneObjects']={'detachedClutterCount':orphan_count,'thinSupportPixels':int(metal.sum()),'overheadEquipmentPixels':int(overhead.sum()),'framePanelPixels':int(frame_panel_extent.sum()),'frameMaskLeakPixels':int(frame_panels_leaked.sum())}
  plan['surfaceContour']=contour
  plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v3','backdropMethod':'local-evidence-v4'}
  if selected.mean()>.04:

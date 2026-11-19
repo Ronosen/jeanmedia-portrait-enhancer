@@ -18,6 +18,17 @@ def floor_boundary(rgb, protected):
     return floor_evidence(rgb, protected)[0]
 
 
+def separated_floor_witness(person,detailed,objects,support):
+    """People and contacting prop boxes cannot vote as floor material."""
+    witness=person>.5
+    for obj in objects:
+        if obj['class']!=0 or obj['confidence']<.2:continue
+        x0,y0,x1,y1=obj['box']
+        if obj['confidence']<.45 and not (person[y0:y1,x0:x1]>.5).any():continue
+        witness[y0:y1,x0:x1] |= detailed[y0:y1,x0:x1]>.98
+    return witness|support
+
+
 def fit_backdrop(rgb, protected, floor):
     height, width = protected.shape
     yy, xx = np.mgrid[:height, :width]
@@ -236,7 +247,7 @@ def refine_edges(rgb, protected, probability, foreground):
 
 
 def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
-                     foreground_probability=None, floor_mode=None, equipment_plan=None, floor_probability=None):
+                     foreground_probability=None, floor_mode=None, equipment_plan=None, floor_probability=None,floor_measurement=None):
     from runtime import progress
     progress("Protecting subject", 45)
     detailed = foreground_probability is not None if plan is None else plan.get("version") in (2, 3)
@@ -245,8 +256,10 @@ def prepare_backdrop(rgb, probability, objects, clean_floor=False, plan=None,
     person, protected, kept = initial_protection(probability, objects,
                                                 foreground_probability if detailed else None)
     from scene_evidence import floor_evidence
-    floor_witness=(floor_probability if floor_probability is not None else probability)>.5
-    floor, floor_analysis = floor_evidence(rgb, floor_witness)
+    if floor_measurement is None:
+        floor_witness=(floor_probability if floor_probability is not None else probability)>.5
+        floor, floor_analysis = floor_evidence(rgb, floor_witness)
+    else:floor,floor_analysis,floor_witness=floor_measurement
     if plan is None:
         try:
             coefficients, low, high, model = fit_backdrop(rgb, protected, floor)
@@ -514,6 +527,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
 
     if preview.mode != "RGB":
         raise ValueError("Studio backdrop cleanup needs an opaque photograph.")
+    fresh_plan=plan is None
     original_image = image
     original_preview = preview
     if plan and plan.get('separation'):
@@ -574,10 +588,45 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
                               "defects":empty,"extension":empty,"engine":"clone-v1","color":[0,0,0]},
               "review":["Cleanup withheld: the supporting seat could not be reliably protected." if ambiguous_support else "Non-studio scene preserved; automatic backdrop reconstruction was not applied."]}
         return image,preview,plan
+    if fresh_plan and separated is not None and floor_mode=='patch':
+        from backdrop_finish import unpack,pack
+        from scene_evidence import floor_evidence
+        from separation import prepare as prepare_layers
+        # Validate the actual extracted props before asking them to constrain
+        # the floor. This pass plans masks only; reconstruction runs once.
+        prepare_layers(plan,pixels,separated,probability,objects,raw_alpha,floor_probability)
+        support=unpack(plan['layers'].get('confirmedSupport',plan['layers']['support']),plan['layers']['shape'])>0
+        contact_evidence=plan['layers'].get('sourceContact')
+        contact_blend_evidence=plan['layers'].get('sourceContactBlend')
+        detailed=unpack(plan['layers']['foregroundAlpha'],plan['layers']['shape'])/255 if plan['layers'].get('foregroundAlpha') else separated
+        witness=separated_floor_witness(floor_probability,detailed,objects,support)
+        measured,analysis=floor_evidence(pixels,witness,require_coherence=True)
+        if analysis.get('detected'):
+            analysis['validation']='separated-person-and-support-consensus'
+            analysis['previousRow']=round(plan['floor']*pixels.shape[0])
+            if abs(measured-plan['floor'])*pixels.shape[0]>1:
+                try:
+                    refined=prepare_backdrop(pixels,probability,objects,clean_floor,None,detailed_foreground,
+                                             floor_mode,equipment,floor_probability,(measured,analysis,witness))
+                except ValueError:
+                    plan.setdefault('review',[]).append('Floor boundary needs review.')
+                else:
+                    plan,alpha,kept=refined
+                    # A revised floor fit must not discard a support surface
+                    # already confirmed from the same source photograph.
+                    recovered_support=unpack(plan['layers']['support'],plan['layers']['shape'])>0
+                    plan['layers']['support']=pack((support|recovered_support).astype(np.uint8)*255)
+            else:
+                plan['floorAnalysis']=analysis
+                plan['layers']['floorWitness']=pack(witness.astype(np.uint8)*255)
+        plan['layers']['supportEvidence']=pack(support.astype(np.uint8)*255)
+        if contact_evidence and contact_blend_evidence:
+            plan['layers']['sourceContactEvidence']=contact_evidence
+            plan['layers']['sourceContactBlendEvidence']=contact_blend_evidence
     plan["equipmentPlan"] = equipment
     if separated is not None:
         from separation import prepare
-        alpha=prepare(plan,pixels,separated,probability,objects,raw_alpha)
+        alpha=prepare(plan,pixels,separated,probability,objects,raw_alpha,floor_probability)
         from backdrop_finish import pack
         plan['layers']['rawForegroundAlpha']=pack(np.rint(raw_alpha*255).astype(np.uint8))
     if group_info:plan['groupProtection']=group_info

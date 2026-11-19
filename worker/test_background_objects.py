@@ -4,6 +4,30 @@ import numpy as np
 from background_objects import edge_clutter
 
 class EdgeClutterTests(unittest.TestCase):
+ def test_underexposed_flat_paper_uses_local_contrast_instead_of_absolute_white(self):
+  rgb=np.full((500,400,3),25,np.uint8);cv2.fillPoly(rgb,[np.array([[20,410],[70,408],[80,420],[65,430],[20,425]])],(75,75,80))
+  protected=np.zeros((500,400),bool);protected[100:400,140:240]=True
+  self.assertTrue(edge_clutter(rgb,protected,.85)[418,45])
+
+ def test_small_flat_floor_clutter_is_patched_without_a_large_floor_mask(self):
+  rgb=np.full((500,400,3),35,np.uint8);rgb[410:426,20:70]=180
+  protected=np.zeros((500,400),bool);protected[100:400,140:240]=True
+  mask=edge_clutter(rgb,protected,.85)
+  self.assertTrue(mask[418,45]);self.assertFalse(mask[380,45]);self.assertLess(mask.sum(),2500)
+
+ def test_aligned_floor_reflection_is_not_removed_as_a_small_flat_object(self):
+  rgb=np.full((500,400,3),35,np.uint8);rgb[410:426,20:70]=180
+  protected=np.zeros((500,400),bool);protected[100:390,20:70]=True
+  self.assertFalse(edge_clutter(rgb,protected,.85)[418,45])
+
+ def test_long_frame_panel_continues_below_the_floor_without_a_height_cutoff(self):
+  rgb=np.full((300,240,3),30,np.uint8);rgb[20:,:4]=225
+  self.assertTrue(edge_clutter(rgb,np.zeros((300,240),bool),.8)[295,1])
+
+ def test_floor_only_vertical_reflection_is_not_a_crossing_wall_panel(self):
+  rgb=np.full((300,240,3),30,np.uint8);rgb[250:,:4]=225
+  self.assertFalse(edge_clutter(rgb,np.zeros((300,240),bool),.8)[280,1])
+
  def test_local_box_contrast_is_not_hidden_by_distant_bright_tiles(self):
   rgb=np.full((400,300,3),55,np.uint8);protected=np.zeros((400,300),bool)
   rgb[320:]=190;rgb[260:310,270:]=150

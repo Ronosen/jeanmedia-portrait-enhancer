@@ -47,14 +47,10 @@ def attached_props(rgb,alpha,support,model):
     result=np.zeros_like(support,dtype=bool);h,w=support.shape
     person=(alpha>.5)&~support
     source_edges=cv2.dilate(cv2.Canny(cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY),12,30),np.ones((3,3),np.uint8))>0
-    n,labels,stats,_=cv2.connectedComponentsWithStats(support.astype(np.uint8))
-    for index in range(1,n):
-        x,y,bw,bh,area=stats[index]
-        if area<h*w*.005 or bh<h*.08:continue
-        top=max(0,y-round(bh*.3));bottom=min(h,y+4)
-        if y-top<4:continue
-        region=np.s_[top:bottom,x:x+bw]
+    def scan(region,y,top,area,material=None):
         contrast=np.max(np.abs(rgb[region].astype(float)-model[region]),axis=2)>25
+        if material is not None:
+            contrast=(np.max(np.abs(rgb[region].astype(float)-material),axis=2)<90)&(np.ptp(rgb[region],axis=2)<50)&~source_edges[region]
         contrast &= ~person[region]
         contrast=cv2.morphologyEx(contrast.astype(np.uint8),cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
         count,parts,boxes,_=cv2.connectedComponentsWithStats(contrast)
@@ -79,6 +75,22 @@ def attached_props(rgb,alpha,support,model):
             contours,_=cv2.findContours(mask.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
             hull=cv2.convexHull(np.concatenate(contours));local=np.zeros(mask.shape,np.uint8)
             cv2.fillPoly(local,[hull],1);result[region] |= local>0
+    n,labels,stats,_=cv2.connectedComponentsWithStats(support.astype(np.uint8))
+    for index in range(1,n):
+        x,y,bw,bh,area=stats[index]
+        if area<h*w*.005 or bh<h*.08:continue
+        top=max(0,y-round(bh*.3));bottom=min(h,y+4)
+        if y-top<4:continue
+        scan(np.s_[top:bottom,x:x+bw],y,top,area)
+        # A wall at the outer seat edge can connect a real shaded top plane
+        # to the search boundary. An inset view isolates that contacting plane
+        # while retaining the same edge and hand-contact evidence requirements.
+        inset=max(3,round(bw*.05))
+        if bw>inset*4:
+            inside=np.s_[top:bottom,x+inset:x+bw-inset]
+            scan(inside,y,top,area)
+            colour=np.percentile(rgb[labels==index],75,axis=0)
+            if colour.mean()>135:scan(inside,y,top,area,colour)
     return result
 
 

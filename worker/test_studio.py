@@ -8,6 +8,34 @@ from studio import prepare_backdrop, render_backdrop
 
 
 class StudioBackdropTests(unittest.TestCase):
+    def test_floor_refinement_retains_an_already_confirmed_seat_surface(self):
+        from types import SimpleNamespace
+        from studio import clean_studio
+        from backdrop_finish import pack,unpack
+        image=Image.new('RGB',(40,60),(30,30,30));pp=np.zeros((60,40),np.float32);pp[5:50,10:30]=1
+        first=np.zeros((60,40),np.uint8);first[35:55,15:30]=255
+        second=first.copy();second[35:40]=0
+        def prepared(floor,support):
+            return {'version':3,'floor':floor,'layers':{'shape':[60,40],'support':pack(support)}},np.zeros_like(pp),[]
+        def separate(plan,*args):
+            self.assertEqual(unpack(plan['layers']['support'],[60,40])[37,22],255)
+            return np.zeros_like(pp)
+        with patch('background.person_probability',return_value=pp),patch('foreground.foreground_probability',return_value=pp), \
+             patch('matting.MODEL',SimpleNamespace(is_file=lambda:True)),patch('matting.foreground_alpha',return_value=pp), \
+             patch('equipment.detect_equipment',return_value=None),patch('objects.detect_objects',return_value=[{'class':0,'confidence':.9,'box':[10,5,30,50]}]), \
+             patch('studio.prepare_backdrop',side_effect=[prepared(.4,first),prepared(.8,second)]), \
+             patch('scene_evidence.floor_evidence',return_value=(.8,{'detected':True})), \
+             patch('separation.prepare',side_effect=separate),patch('studio.render_backdrop',return_value=image):
+            clean_studio(image,image,floor_mode='patch')
+
+    def test_floor_witness_keeps_gowns_and_seats_but_excludes_reflections_below_people(self):
+        from studio import separated_floor_witness
+        pp=np.zeros((300,240),np.float32);pp[30:70,80:130]=1;pp[120:135,80:95]=1
+        detailed=np.zeros_like(pp);detailed[30:240,80:150]=1;detailed[260:280,80:150]=1;detailed[100:230,20:50]=1;detailed[:15]=1
+        support=np.zeros_like(pp,bool);support[170:255,150:210]=True
+        witness=separated_floor_witness(pp,detailed,[{'class':0,'confidence':.9,'box':[70,20,160,245]},{'class':0,'confidence':.3,'box':[20,100,100,235]}],support)
+        self.assertTrue(witness[220,100]);self.assertTrue(witness[200,30]);self.assertTrue(witness[230,190]);self.assertFalse(witness[270,100]);self.assertFalse(witness[5,5])
+
     def test_bright_support_cut_by_bottom_frame_is_kept(self):
         from studio import support_shapes
         rgb=np.full((400,300,3),30,np.uint8);rgb[290:,65:245]=170
@@ -63,7 +91,7 @@ class StudioBackdropTests(unittest.TestCase):
                 full,after,plan,status=auto_edit(image,image,True)
             self.assertEqual(status,'Needs review')
             self.assertEqual(plan['adaptiveRevision'],3)
-            self.assertEqual(plan['processingRevision'],14)
+            self.assertEqual(plan['processingRevision'],15)
             self.assertEqual(image.tobytes(),after.tobytes())
             self.assertEqual(change_mask(plan).getbbox(),None)
             _,replay,_=clean_studio(image,image,plan,export=True)

@@ -1,10 +1,39 @@
 import unittest
 import numpy as np
-from scene_objects import detached_clutter,thin_supports,corner_equipment
+from scene_objects import detached_clutter,thin_supports,corner_equipment,frame_panel_leaks
 from scene_evidence import texture_finish
 
 
 class SceneObjectsTests(unittest.TestCase):
+ def test_frame_cleanup_never_removes_a_detailed_hand_missed_by_the_person_model(self):
+  rgb=np.full((400,300,3),25,np.uint8);rgb[:350,:30]=160
+  pp=np.zeros((400,300),np.float32);pp[100:330,60:110]=1
+  raw=np.zeros_like(pp);raw[100:330,60:110]=1;raw[180:200,25:70]=1
+  rgb[180:200,25:70]=(137,80,60);pp[180:200,25:60]=.1
+  mask=frame_panel_leaks(rgb,np.full_like(rgb,25,dtype=float),pp,np.zeros_like(pp,bool),raw)
+  self.assertFalse(mask[190,27]);self.assertTrue(mask[30,10])
+
+ def test_panel_extent_excludes_all_donor_fragments_but_keeps_detailed_clothing(self):
+  rgb=np.full((400,300,3),25,np.uint8);rgb[:350,:30]=160
+  pp=np.zeros((400,300),np.float32);pp[100:330,40:110]=1
+  pp[180:230,15:50]=.7;rgb[180:230,15:50]=160
+  raw=np.zeros_like(pp);raw[180:230,30:50]=1
+  mask,extent=frame_panel_leaks(rgb,np.full_like(rgb,25,dtype=float),pp,np.zeros_like(pp,bool),raw,with_extent=True)
+  self.assertTrue(mask[200,20]);self.assertFalse(mask[200,35]);self.assertTrue(extent[10,5]);self.assertTrue(extent[340,5])
+
+ def test_frame_wall_is_removed_but_white_clothing_and_support_are_protected(self):
+  rgb=np.full((400,300,3),25,np.uint8);rgb[:350,:30]=160
+  rgb[:350,:8]=(180,120,70);rgb[270:300,:8]=35
+  pp=np.zeros((400,300),np.float32);pp[100:330,40:110]=1
+  rgb[180:230,15:50]=160;pp[180:230,15:50]=1
+  support=np.zeros((400,300),bool);support[300:360,20:80]=True;rgb[support]=220
+  mask=frame_panel_leaks(rgb,np.full_like(rgb,25,dtype=float),pp,support)
+  self.assertTrue(mask[30,10]);self.assertTrue(mask[30,2]);self.assertFalse(mask[280,2]);self.assertFalse(mask[200,20]);self.assertFalse(mask[support].any())
+
+ def test_light_backdrop_is_not_selected_as_a_frame_wall(self):
+  rgb=np.full((400,300,3),200,np.uint8);pp=np.zeros((400,300),np.float32);pp[100:300,100:200]=1
+  self.assertFalse(frame_panel_leaks(rgb,np.full_like(rgb,195,dtype=float),pp,np.zeros_like(pp,bool)).any())
+
  def test_overhead_corner_gear_uses_its_edge_and_preserves_a_cap(self):
   import cv2
   rgb=np.full((400,300,3),60,np.uint8)
