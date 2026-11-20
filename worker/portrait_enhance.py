@@ -44,6 +44,9 @@ def prepare(image, preview):
             'teeth':pack(np.rint(teeth*255).astype(np.uint8)),
             'eyes':pack(np.rint(eyes*255).astype(np.uint8)),'guard':pack(guard),
             'teethPixels':int((teeth>0).sum()),'eyePixels':int((eyes>0).sum())})
+    plan['retouchAssessment']={'version':2,'faces':len(plan['faces']),
+        'teethRegions':sum(f['teethPixels']>0 for f in plan['faces']),
+        'eyeRegions':sum(f['eyePixels']>0 for f in plan['faces'])}
     return plan
 
 
@@ -101,13 +104,25 @@ def color_tile(rgb, tone, face_guard):
     return vivid
 
 
-def whiten(rgb, teeth, eyes):
-    amount=np.maximum(teeth*.55,eyes*.30)
-    # Reduce the measured tint and lift gently, retaining tooth/vein texture.
-    neutral=rgb.astype(np.float32).mean(axis=2)
-    target=rgb.astype(np.float32)*.3+neutral[...,None]*.7
-    target+=np.minimum(18,(255-neutral)*.18)[...,None]
-    return np.rint(np.clip(rgb*(1-amount[...,None])+target*amount[...,None],0,255)).astype(np.uint8)
+def whiten(rgb, teeth, eyes, version=2):
+    if version==1:
+        amount=np.maximum(teeth*.55,eyes*.30)
+        neutral=rgb.astype(np.float32).mean(axis=2)
+        target=rgb.astype(np.float32)*.3+neutral[...,None]*.7
+        target+=np.minimum(18,(255-neutral)*.18)[...,None]
+        return np.rint(np.clip(rgb*(1-amount[...,None])+target*amount[...,None],0,255)).astype(np.uint8)
+    # RGB averaging darkened yellow enamel while the small lift cancelled it.
+    # Work in perceptual lightness instead; retain texture and never clip white.
+    lab=cv2.cvtColor(rgb,cv2.COLOR_RGB2LAB).astype(np.float32)
+    tooth=np.clip(teeth,0,1);eye=np.clip(eyes,0,1)*(1-tooth)
+    lift=np.minimum(42,np.maximum(0,238-lab[:,:,0])*.48)*tooth
+    lift+=np.minimum(22,np.maximum(0,225-lab[:,:,0])*.34)*eye
+    lab[:,:,0]+=lift
+    neutralize=np.clip(.78*tooth+.55*eye,0,1)
+    lab[:,:,1:]=128+(lab[:,:,1:]-128)*(1-neutralize[...,None])
+    target=cv2.cvtColor(np.rint(np.clip(lab,0,255)).astype(np.uint8),cv2.COLOR_LAB2RGB)
+    # A LAB round-trip must not change skin, pupils, lips or gaps in the mask.
+    return np.where(((tooth+eye)>0)[...,None],target,rgb)
 
 
 def apply(image, plan):
@@ -130,7 +145,7 @@ def apply(image, plan):
         if plan.get('detail'):
             from detail_finish import apply as finish_detail
             toned=finish_detail(toned,plan['detail'],areas['guard'])
-        finished=Image.fromarray(whiten(toned,areas['teeth'],areas['eyes']))
+        finished=Image.fromarray(whiten(toned,areas['teeth'],areas['eyes'],plan.get('retouchAssessment',{}).get('version',1)))
         if image.mode=='RGBA':finished.putalpha(tile.getchannel('A'))
         result.paste(finished.crop((0,y-top,image.width,end-top)),(0,y))
     return result

@@ -1,0 +1,11 @@
+{
+  "upstream": "https://huggingface.co/Xenova/clip-vit-base-patch32",
+  "revision": "6b7c523703ae26e39be4b03774966f8571c7f523",
+  "license": "MIT",
+  "licenseFile": "CLIP-LICENSE",
+  "promptHash": "579a63217bcf5859cd91d5bcc5997078b973ec7601bd1a9bf04916af805d6997",
+  "promptVectorsSha256": "9dc20b0b148805918da7bbc8a81dc0ab6ab0f1261f71e3bdb5f0c2654cf9c3ff",
+  "textModelSha256": "18845f2ccc35223bb7fec403383a131154b11ac0918df25cf51986df5efd3a21",
+  "compiler": "scripts/compile-scene-prompts.py",
+  "scope": "Zero-shot object evidence; no calibrated probability or intent guarantee."
+}

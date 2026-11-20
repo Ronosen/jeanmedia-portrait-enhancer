@@ -6,6 +6,20 @@ from separation import anchored_alpha,composite,prepare,render,replay,trim_suppo
 from backdrop_finish import pack,unpack
 
 class SeparationTests(unittest.TestCase):
+ def test_semantic_clutter_below_uncertain_wall_enters_visible_repair_mask(self):
+  rgb=np.full((220,180,3),25,np.uint8);alpha=np.zeros((220,180),np.float32);alpha[40:200,80:130]=1
+  raw=alpha.copy();raw[180:210,10:40]=1;rgb[180:210,10:40]=(30,40,200)
+  removal=np.zeros(alpha.shape,bool);removal[180:210,10:40]=True
+  empty=np.zeros(alpha.shape,np.uint8)
+  plan={'sceneIntentSkill':1,'coefficients':[[25]*3]+[[0]*3]*5,'low':[25]*3,'high':[25]*3,'floor':.7,
+        'floorAnalysis':{'detected':False},'layers':{'shape':[220,180]}}
+  with patch('scene_intent.assess',return_value=(np.zeros_like(alpha),removal,{'version':1,'objects':[],'uncertain':0})):
+   selected=prepare(plan,rgb,alpha,alpha,[],raw,alpha)
+  self.assertTrue((selected[removal]>0).all())
+  self.assertTrue((unpack(plan['layers']['clutter'],[220,180])[removal]>0).all())
+  self.assertFalse((unpack(plan['layers']['protected'],[220,180])[removal]>0).any())
+  self.assertTrue((unpack(plan['layers']['protected'],[220,180])[alpha>.5]>0).all())
+
  def test_confirmed_front_panel_recovers_shaded_side_but_not_detached_wall(self):
   from support_geometry import complete_support_surfaces
   rgb=np.full((300,240,3),50,np.uint8);rgb[180:250,60:100]=160;rgb[170:250,100:170]=230

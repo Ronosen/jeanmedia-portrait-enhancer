@@ -100,6 +100,13 @@ def diagnostics():
         except Exception:
             tests.append({"model": name, "ok": False})
     hardware["selfTest"] = tests
+    try:
+        from scene_intent import resources
+        intent_model,vectors=resources()
+        intent_model.run(None,{intent_model.get_inputs()[0].name:np.zeros((1,3,224,224),np.float32)})
+        tests.append({'model':'clip_vision_int8.onnx','ok':True,'promptVectors':int(vectors.shape[0]),'integrityVerified':True})
+    except Exception:
+        tests.append({'model':'clip_vision_int8.onnx','ok':False})
     from neural import MODEL as reconstruction_model, available as reconstruction_available
     hardware["reconstructionModel"] = {"installed": reconstruction_model.is_file(),
                                       "integrityVerified": reconstruction_available(),

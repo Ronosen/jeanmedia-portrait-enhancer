@@ -76,6 +76,19 @@
       "declaredLicense": "Apache-2.0",
       "purpose": "Local eye/iris and mouth geometry; no identity recognition",
       "approval": "User requested local teeth/eye whitening and free open-source integrations on 2026-11-19"
+    },
+    {
+      "name": "CLIP ViT-B/32 semantic scene intent",
+      "file": "clip_vision_int8.onnx",
+      "bytes": 88648877,
+      "sha256": "0ab0c1b3ace708e539633af1744d5a95247fe4e14d3e08ff197ef82a6cb9bd93",
+      "source": "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/6b7c523703ae26e39be4b03774966f8571c7f523/onnx/vision_model_int8.onnx",
+      "revision": "6b7c523703ae26e39be4b03774966f8571c7f523",
+      "licenseFile": "CLIP-LICENSE",
+      "declaredLicense": "MIT",
+      "purpose": "Local crop-to-text similarities for detached prop protection and clutter evidence; uncertain intent is reviewed",
+      "promptVectors": "scene_intent_prompts.npz",
+      "provenance": "SceneIntent-PROVENANCE.json"
     }
   ],
   "automaticDownloads": false,

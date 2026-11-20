@@ -597,6 +597,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
               "review":["Cleanup withheld: the supporting seat could not be reliably protected." if ambiguous_support else "Non-studio scene preserved; automatic backdrop reconstruction was not applied."]}
         return image,preview,plan
     if fresh_plan and separated is not None and floor_mode=='patch':
+        plan['sceneIntentSkill']=1
         from backdrop_finish import unpack,pack
         from scene_evidence import floor_evidence
         from separation import prepare as prepare_layers
@@ -634,6 +635,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
     plan["equipmentPlan"] = equipment
     if separated is not None:
         from separation import prepare
+        if fresh_plan and floor_mode=='patch':plan['sceneIntentSkill']=1
         alpha=prepare(plan,pixels,separated,probability,objects,raw_alpha,floor_probability)
         from backdrop_finish import pack
         plan['layers']['rawForegroundAlpha']=pack(np.rint(raw_alpha*255).astype(np.uint8))

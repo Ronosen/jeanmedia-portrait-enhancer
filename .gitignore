@@ -17,6 +17,8 @@ release/
 *.pt
 *.pth
 *.safetensors
+*.npz
+*.onnx.download
 src-tauri/gen/
 
 # Private photographs, machine-specific launch state and audit outputs

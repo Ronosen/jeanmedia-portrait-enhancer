@@ -217,5 +217,13 @@
     "source": "https://github.com/ZhengPeng7/BiRefNet",
     "distribution": "https://github.com/danielgatis/rembg/releases/tag/v0.0.0",
     "sha256": "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333"
+  },
+  "sceneIntentModel": {
+    "name": "OpenAI CLIP / Xenova ONNX conversion",
+    "license": "MIT",
+    "licenseFile": "worker/models/CLIP-LICENSE",
+    "source": "https://github.com/openai/CLIP",
+    "distribution": "https://huggingface.co/Xenova/clip-vit-base-patch32",
+    "provenance": "worker/models/SceneIntent-PROVENANCE.json"
   }
 }

@@ -147,6 +147,21 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  from scene_objects import decorative_props
  decoration=decorative_props(rgb,model,protected,(equipment>0)|panels|overhead,plan['floor'])
  prop_alpha[decoration]=1
+ semantic_remove=np.zeros((h,w),bool)
+ if plan.get('sceneIntentSkill')==1:
+  from scene_intent import assess
+  from runtime import progress
+  progress('Checking props and background distractions',51)
+  # Independently anchored people, their clothes and supporting geometry are
+  # never candidates for automatic removal, even if a crop is misclassified.
+  anchors=protected.copy()
+  semantic_keep,semantic_remove,decisions=assess(rgb,raw_alpha,decoration,(equipment>0)|panels|overhead,anchors)
+  prop_alpha[semantic_remove]=0
+  prop_alpha=np.maximum(prop_alpha,semantic_keep)
+  alpha[semantic_remove&~anchors]=0
+  plan['sceneIntent']=decisions
+  if decisions['uncertain']:
+   plan.setdefault('review',[]).append('Some detached objects have uncertain prop intent; existing protection was retained.')
  alpha=np.maximum(alpha,prop_alpha)
  protected=np.rint(alpha*255)>3
  overhead &= ~protected
@@ -190,6 +205,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  clutter |= orphan
  clutter |= overhead
  clutter |= frame_panel_extent&~protected
+ clutter |= semantic_remove&~protected
  selected |= clutter
  layers=plan['layers'];layers['foregroundAlpha']=pack(np.rint(alpha*255).astype(np.uint8))
  layers['person']=layers['foregroundAlpha'];layers['protected']=pack(protected.astype(np.uint8)*255)

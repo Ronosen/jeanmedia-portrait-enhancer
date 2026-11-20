@@ -50,6 +50,18 @@ class PortraitEnhancementTests(unittest.TestCase):
         self.assertGreater(out[5,5,2],rgb[5,5,2])
         self.assertLess(np.ptp(out[5,5]),np.ptp(rgb[5,5]))
 
+    def test_whitening_lifts_enamel_and_sclera_more_than_legacy_without_clipping(self):
+        rgb=np.full((12,20,3),(175,160,125),np.uint8)
+        teeth=np.zeros((12,20));teeth[:,:8]=1
+        eyes=np.zeros_like(teeth);eyes[:,12:18]=1
+        old=whiten(rgb,teeth,eyes,version=1);new=whiten(rgb,teeth,eyes)
+        old_l=cv2.cvtColor(old,cv2.COLOR_RGB2LAB)[:,:,0].astype(float)
+        new_l=cv2.cvtColor(new,cv2.COLOR_RGB2LAB)[:,:,0].astype(float)
+        self.assertGreater(np.mean(new_l[teeth>0]-old_l[teeth>0]),10)
+        self.assertGreater(np.mean(new_l[eyes>0]-old_l[eyes>0]),5)
+        np.testing.assert_array_equal(new[:,8:12],rgb[:,8:12])
+        self.assertLess(int(new.max()),255)
+
     def test_semantic_eye_mask_excludes_irises_skin_and_lips(self):
         rgb=np.full((110,180,3),(125,80,60),np.uint8);p=np.zeros((478,2))
         for indices,center in EYES:
