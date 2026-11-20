@@ -19,6 +19,17 @@ class SceneEvidenceTests(unittest.TestCase):
         correction,_,_=local_finish(light,safe,bounded=True)
         self.assertLess(np.max(np.abs(correction)),.8)
 
+    def test_unknown_dark_floor_is_not_exposed_to_wall_smoothing(self):
+        h,w=240,180;yy,xx=np.mgrid[:h,:w]
+        rgb=np.full((h,w,3),8,np.uint8);rgb[180:]=(14,16,18)
+        rgb[210:212,::8]=40
+        subject=np.zeros((h,w),bool);subject[40:220,70:110]=True
+        wall,analysis=wall_surface(rgb,subject,1.,{'detected':False})
+        self.assertFalse(wall.any());self.assertTrue(analysis['preserveUncertainSurface'])
+        plan=self.plan(subject,1.);plan['separation']['backdropMethod']='local-evidence-v5'
+        plan['layers']['wallSurface']=pack(wall.astype(np.uint8)*255)
+        np.testing.assert_array_equal(np.asarray(finish(Image.fromarray(rgb),plan)),rgb)
+
     def test_opposite_local_edges_are_not_one_material_transition(self):
         rgb=np.full((400,240,3),20,np.uint8);rgb[:100,120:]=40;rgb[100:300,:120]=40;rgb[300:]=100
         protected=np.zeros((400,240),bool);protected[40:380,100:140]=True

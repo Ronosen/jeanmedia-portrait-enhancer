@@ -44,7 +44,7 @@ function worker(script,args,input){
      const stem=path.basename(args.source,path.extname(args.source));
      const fixture=path.join(process.env.JEANMEDIA_UI_PLANS_DIR,stem+'-plan.json');
      if(fs.existsSync(fixture)){
-      const plan=JSON.parse(fs.readFileSync(fixture,'utf8'));plan.processingRevision=19;
+      const plan=JSON.parse(fs.readFileSync(fixture,'utf8'));plan.processingRevision=20;
       args={...args,autoEdit:false,enhance:true,studioPlan:plan};
      }
     }

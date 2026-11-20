@@ -89,9 +89,11 @@ def wall_surface(rgb, protected, floor, analysis):
     """
     h,w=protected.shape
     appearance=cv2.cvtColor(rgb,cv2.COLOR_RGB2LAB)
-    wall=np.ones((h,w),bool)
+    wall=np.zeros((h,w),bool)
     if not analysis.get('detected'):
-        return wall, {'method':'visible-contour-v1','detected':False}
+        # An unknown horizon is not evidence that the floor is wall. Preserve
+        # source surfaces; independent equipment masks may still be repaired.
+        return wall, {'method':'visible-contour-v1','detected':False,'preserveUncertainSurface':True}
     radius=max(2,round(h*.006));seed=round(floor*h)
     reach=max(radius*5,round(h*.10));yy=np.arange(h)
     positions=np.arange(max(3*radius,seed-reach),min(h-3*radius,seed+reach))

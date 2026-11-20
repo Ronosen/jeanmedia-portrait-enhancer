@@ -46,3 +46,5 @@ Technical crash logs contain only timestamp, exception type and worker version, 
 This is a development build. Local masked LaMa reconstruction is implemented. Semantic hair/face/body-part parsing, manual brushes, signed installer distribution and broad human quality acceptance are still pending. It is not certified client-ready for every portrait.
 
 Detached salient objects are conservatively protected as possible photo props, including hanging gowns and balloons. Equipment requires independent removal evidence. This protects ambiguous objects but may also retain unwanted clutter; semantic recognition of every graduation prop is not guaranteed. Repeated Auto Edit on exactly the same pixels can reuse subject inference; new photos still require inference and background reconstruction.
+
+When the wall/floor boundary cannot be measured reliably, broad backdrop smoothing is withheld and the original surface texture and contact shadows are preserved. Independently detected equipment may still be repaired. Some backdrop folds can remain in these uncertain scenes.
