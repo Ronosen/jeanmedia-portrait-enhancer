@@ -26,6 +26,22 @@ class SceneObjectsTests(unittest.TestCase):
   equipment=empty.copy();equipment[170:260,:30]=True
   self.assertFalse(decorative_props(rgb,reference,empty,equipment,.9).any())
 
+ def test_wallpaper_connected_to_balloon_is_not_protected_as_decoration(self):
+  from scene_objects import decorative_props
+  import cv2
+  rgb=np.full((320,240,3),(150,125,90),np.uint8)
+  cv2.circle(rgb,(120,45),25,(220,175,35),-1);rgb[65:150,119:122]=(220,175,35)
+  empty=np.zeros((320,240),bool);mask=decorative_props(rgb,np.full_like(rgb,30,dtype=float),empty,empty,.8)
+  self.assertTrue(mask[45,120]);self.assertFalse(mask[120,120]);self.assertFalse(mask[90,80])
+
+ def test_dark_balloon_next_to_coloured_balloon_uses_observed_round_edge(self):
+  from scene_objects import decorative_props
+  import cv2
+  rgb=np.full((320,240,3),(150,125,90),np.uint8)
+  cv2.circle(rgb,(85,60),26,(220,175,35),-1);cv2.circle(rgb,(145,60),26,(20,20,20),-1)
+  empty=np.zeros((320,240),bool);mask=decorative_props(rgb,np.full_like(rgb,30,dtype=float),empty,empty,.8)
+  self.assertTrue(mask[60,85]);self.assertTrue(mask[60,145]);self.assertFalse(mask[120,145])
+
  def test_frame_cleanup_never_removes_a_detailed_hand_missed_by_the_person_model(self):
   rgb=np.full((400,300,3),25,np.uint8);rgb[:350,:30]=160
   pp=np.zeros((400,300),np.float32);pp[100:330,60:110]=1

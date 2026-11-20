@@ -100,8 +100,9 @@ def detached_clutter(raw,protected,people,floor,rgb=None,reference=None):
     count,labels,stats,_=cv2.connectedComponentsWithStats((raw>.02).astype(np.uint8))
     removed=0
     for label in range(1,count):
-        x,y,bw,bh,area=stats[label];part=labels==label
+        x,y,bw,bh,area=stats[label]
         if not h*w*.001<area<h*w*.45 or y>=ceiling:continue
+        part=labels==label
         if (raw[part]>.5).sum()<area*.25 or (protected&part).sum()>max(16,area*.02):continue
         touch=part&contact
         if bh>=body_height*.4:touch[y+max(1,round(bh/3)):]=False
@@ -194,18 +195,51 @@ def decorative_props(rgb,reference,protected,equipment,floor):
     # A coloured backdrop is its own material, not a prop. Require both
     # extra chroma and substantial colour separation from the fitted wall.
     contrast=np.max(np.abs(rgb.astype(float)-reference),axis=2)
-    material=(chroma>55)&(chroma>reference_chroma+30)&(contrast>45)
+    material=(chroma>80)&(chroma>reference_chroma+45)&(contrast>45)
     material &= ~protected&~equipment
     # Decorations may rest on the floor; a horizon is not a prop boundary.
     material=cv2.morphologyEx(material.astype(np.uint8),cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
-    n,labels,stats,_=cv2.connectedComponentsWithStats(material)
+    # Break thin wallpaper lines away from thick decorations before finding
+    # components. Otherwise one attached stripe admits an entire wall motif.
+    radius=max(2,round(min(h,w)*.006))
+    kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(radius*2+1,)*2)
+    solid=cv2.morphologyEx(material,cv2.MORPH_OPEN,kernel)
+    material=(cv2.dilate(solid,kernel)>0)&(material>0)
+    n,labels,stats,_=cv2.connectedComponentsWithStats(material.astype(np.uint8))
     result=np.zeros((h,w),np.uint8)
     for i in range(1,n):
-        x,y,bw,bh,area=stats[i];part=labels==i
+        x,y,bw,bh,area=stats[i]
         if not h*w*.0005<area<h*w*.12 or bw>w*.35 or bh>h*.65:continue
+        part=labels==i
         if cv2.distanceTransform(part.astype(np.uint8),cv2.DIST_L2,3).max()<max(3,min(h,w)*.008):continue
         # Fill only measured closed contours, never an enclosing rectangle or
         # convex hull across the gaps of a number balloon.
         contours,_=cv2.findContours(part.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
         cv2.drawContours(result,contours,-1,255,cv2.FILLED)
+    # A neutral balloon beside a coloured decoration may have almost no
+    # chroma or saliency. Require an observed circular edge and a coherent
+    # dark interior separated from a brighter surrounding material.
+    original=result.copy()
+    n,_,boxes,_=cv2.connectedComponentsWithStats((original>0).astype(np.uint8))
+    for x,y,bw,bh,area in boxes[1:]:
+        radius=max(bw,bh)/2
+        if min(bw,bh)<12 or max(bw,bh)/max(1,min(bw,bh))>2:continue
+        pad=round(radius*3);x0=max(0,x-pad);y0=max(0,y-pad);x1=min(w,x+bw+pad);y1=min(h,y+bh+pad)
+        gray=cv2.cvtColor(rgb[y0:y1,x0:x1],cv2.COLOR_RGB2GRAY)
+        circles=cv2.HoughCircles(gray,cv2.HOUGH_GRADIENT,1.2,max(10,radius),param1=60,param2=25,
+            minRadius=max(8,round(radius*.55)),maxRadius=round(radius*1.5))
+        if circles is None:continue
+        yy,xx=np.mgrid[:gray.shape[0],:gray.shape[1]]
+        for cx,cy,r in circles[0]:
+            distance=np.hypot(xx-cx,yy-cy);inside=distance<r*.6;ring=(distance>r*1.08)&(distance<r*1.3)
+            if inside.sum()<30 or ring.sum()<30:continue
+            low=float(np.median(gray[inside]));high=float(np.median(gray[ring]))
+            if low>80 or high-low<20:continue
+            neutral=np.ptp(rgb[y0:y1,x0:x1],axis=2)<25
+            dark=((distance<r*1.15)&(gray<(low+high)/2)&neutral).astype(np.uint8)
+            count,parts,stats,_=cv2.connectedComponentsWithStats(dark)
+            seed=parts[min(gray.shape[0]-1,max(0,round(float(cy)))),min(gray.shape[1]-1,max(0,round(float(cx))))]
+            if not seed or stats[seed,cv2.CC_STAT_AREA]<np.pi*r*r*.35:continue
+            contours,_=cv2.findContours((parts==seed).astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(result[y0:y1,x0:x1],contours,-1,255,cv2.FILLED)
     return (result>0)&~equipment&~protected
