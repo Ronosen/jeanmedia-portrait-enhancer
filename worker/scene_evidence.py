@@ -210,7 +210,15 @@ def local_finish(gray, safe, bounded=False):
         mean = cv2.GaussianBlur(residual.astype(np.float32), (0, 0), scale) / np.maximum(normal, .001)
         variance = cv2.GaussianBlur(residual.astype(np.float32)**2, (0, 0), scale) / np.maximum(normal, .001) - mean**2
         contrast = np.maximum(contrast, np.sqrt(np.maximum(0, variance)))
-    confidence = np.clip((contrast - 2) / 3, 0, 1)
+    # Dark cloth folds can span only a few intensity levels. Use a
+    # luminance/noise-relative threshold for the bounded studio finish.
+    threshold=2.0;span=3.0
+    if bounded:
+        noise=np.median(np.abs(gray-low)[safe])
+        level=np.median(gray[safe])
+        threshold=max(.35,min(2.,level*.025),float(noise)*1.5)
+        span=max(.75,threshold*1.5)
+    confidence = np.clip((contrast - threshold) / span, 0, 1)
     confidence[~safe] = 0
     # Suppress isolated detection noise; corrections stay inside the measured
     # defect support. Opaque foreground and all floor pixels remain excluded.

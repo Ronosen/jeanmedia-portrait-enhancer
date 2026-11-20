@@ -7,6 +7,18 @@ from backdrop_finish import finish, pack, unpack
 
 
 class SceneEvidenceTests(unittest.TestCase):
+    def test_deep_black_folds_are_smoothed_without_touching_foreground(self):
+        from scene_evidence import local_finish
+        h,w=240,180;yy,xx=np.mgrid[:h,:w]
+        gray=(8+2*np.sin(xx/5)).astype(np.float32)
+        safe=np.ones((h,w),bool);safe[40:210,70:100]=False
+        delta,_,_=local_finish(gray,safe,bounded=True)
+        self.assertLess(np.std((gray+delta)[safe]),np.std(gray[safe])*.65)
+        self.assertTrue((delta[~safe]==0).all())
+        light=(8+3*xx/w+2*(yy/h)**2).astype(np.float32)
+        correction,_,_=local_finish(light,safe,bounded=True)
+        self.assertLess(np.max(np.abs(correction)),.8)
+
     def test_opposite_local_edges_are_not_one_material_transition(self):
         rgb=np.full((400,240,3),20,np.uint8);rgb[:100,120:]=40;rgb[100:300,:120]=40;rgb[300:]=100
         protected=np.zeros((400,240),bool);protected[40:380,100:140]=True
