@@ -144,6 +144,9 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  overhead=corner_equipment(rgb,protected)
  from scene_objects import intentional_props
  prop_alpha=intentional_props(raw_alpha,protected,objects,plan['floor'],(equipment>0)|panels|overhead)
+ from scene_objects import decorative_props
+ decoration=decorative_props(rgb,model,protected,(equipment>0)|panels|overhead,plan['floor'])
+ prop_alpha[decoration]=1
  alpha=np.maximum(alpha,prop_alpha)
  protected=np.rint(alpha*255)>3
  overhead &= ~protected

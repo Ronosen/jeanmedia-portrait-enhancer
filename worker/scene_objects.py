@@ -184,3 +184,28 @@ def intentional_props(raw,protected,people,floor,equipment):
         if not core.any() or (equipment&core).sum()>core.sum()*.15:continue
         result[part]=raw[part]
     return result
+
+
+def decorative_props(rgb,reference,protected,equipment,floor):
+    """Conservatively retain distinct coloured decorations missed by saliency."""
+    h,w=protected.shape
+    chroma=np.ptp(rgb,axis=2).astype(float)
+    reference_chroma=np.ptp(reference,axis=2)
+    # A coloured backdrop is its own material, not a prop. Require both
+    # extra chroma and substantial colour separation from the fitted wall.
+    contrast=np.max(np.abs(rgb.astype(float)-reference),axis=2)
+    material=(chroma>55)&(chroma>reference_chroma+30)&(contrast>45)
+    material &= ~protected&~equipment
+    # Decorations may rest on the floor; a horizon is not a prop boundary.
+    material=cv2.morphologyEx(material.astype(np.uint8),cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
+    n,labels,stats,_=cv2.connectedComponentsWithStats(material)
+    result=np.zeros((h,w),np.uint8)
+    for i in range(1,n):
+        x,y,bw,bh,area=stats[i];part=labels==i
+        if not h*w*.0005<area<h*w*.12 or bw>w*.35 or bh>h*.65:continue
+        if cv2.distanceTransform(part.astype(np.uint8),cv2.DIST_L2,3).max()<max(3,min(h,w)*.008):continue
+        # Fill only measured closed contours, never an enclosing rectangle or
+        # convex hull across the gaps of a number balloon.
+        contours,_=cv2.findContours(part.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(result,contours,-1,255,cv2.FILLED)
+    return (result>0)&~equipment&~protected

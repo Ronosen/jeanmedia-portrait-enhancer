@@ -16,6 +16,16 @@ class SceneObjectsTests(unittest.TestCase):
   self.assertEqual(props[100,50],1);self.assertEqual(props[55,160],1);self.assertEqual(props[320,45],1)
   self.assertEqual(props[50,260],0);self.assertEqual(props[300,30],0)
 
+ def test_gold_decoration_is_kept_but_matching_coloured_backdrop_is_not(self):
+  from scene_objects import decorative_props
+  rgb=np.full((320,240,3),210,np.uint8);rgb[170:260,:30]=(220,175,35);rgb[:100,90:93]=(220,175,35)
+  reference=np.full_like(rgb,210,dtype=float);empty=np.zeros((320,240),bool)
+  mask=decorative_props(rgb,reference,empty,empty,.9)
+  self.assertTrue(mask[200,15]);self.assertFalse(mask[290,15]);self.assertFalse(mask[30,91])
+  self.assertFalse(decorative_props(rgb,rgb.astype(float),empty,empty,.9).any())
+  equipment=empty.copy();equipment[170:260,:30]=True
+  self.assertFalse(decorative_props(rgb,reference,empty,equipment,.9).any())
+
  def test_frame_cleanup_never_removes_a_detailed_hand_missed_by_the_person_model(self):
   rgb=np.full((400,300,3),25,np.uint8);rgb[:350,:30]=160
   pp=np.zeros((400,300),np.float32);pp[100:330,60:110]=1
