@@ -106,6 +106,8 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
   trimmed=trim_support_edges(rgb,support)
   alpha[support&~trimmed&(alpha<.95)]=0
   support=trimmed|support_evidence
+  from support_geometry import complete_support_surfaces
+  support=complete_support_surfaces(rgb,support,model)
   alpha[support]=1
   confirmed_support=support.copy()
  if plan['layers'].get('support'):

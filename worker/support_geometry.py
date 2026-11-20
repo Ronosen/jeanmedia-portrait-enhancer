@@ -2,6 +2,27 @@
 import cv2
 import numpy as np
 
+def complete_support_surfaces(rgb,support,model):
+    """Grow a confirmed bright panel onto its connected shaded/top panels."""
+    result=support.copy();h,w=support.shape
+    n,labels,stats,_=cv2.connectedComponentsWithStats(support.astype(np.uint8))
+    light=rgb.mean(axis=2);neutral=np.ptp(rgb,axis=2)<65
+    for i in range(1,n):
+        seed=labels==i;area=stats[i,cv2.CC_STAT_AREA]
+        if area<h*w*.001 or np.median(light[seed])<145:continue
+        threshold=max(100,float(np.percentile(light[seed],20))*.62)
+        material=(light>threshold)&neutral&(light-model.mean(axis=2)>25)
+        material=cv2.morphologyEx(material.astype(np.uint8),cv2.MORPH_CLOSE,np.ones((3,3),np.uint8))
+        material=cv2.morphologyEx(material,cv2.MORPH_OPEN,np.ones((3,3),np.uint8))
+        count,parts,boxes,_=cv2.connectedComponentsWithStats(material)
+        for j in np.unique(parts[seed]):
+            if not j:continue
+            x,y,bw,bh,size=boxes[j]
+            if x==0 or y==0 or x+bw==w or y+bh==h:continue
+            if size>min(h*w*.20,area*8) or bw>w*.70:continue
+            result |= parts==j
+    return result
+
 
 def support_contacts(alpha,support,props=None):
     """Seal internal joins between confirmed props and adjacent foreground.
@@ -37,6 +58,8 @@ def support_source_masks(rgb,model,alpha,support,props,floor=None):
     reach=max(3,round(min(support.shape)*.01))
     near=cv2.dilate(support.astype(np.uint8),cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(reach*2+1,)*2))>0
     surface=near&(rgb.mean(axis=2)-model.mean(axis=2)>10)
+    if floor is not None:
+        surface &= support|(np.arange(support.shape[0])[:,None]<round(floor*support.shape[0]))
     exact=surface|props|(blend>=1)
     blend[exact]=1
     if floor is not None:
@@ -47,8 +70,9 @@ def support_source_masks(rgb,model,alpha,support,props,floor=None):
         bottom=np.where(support,yy,-1).max(axis=0)
         valid=bottom>=round(floor*h)-max(3,round(h*.025))
         depth=yy-bottom[None,:]
-        reach=max(4,round(min(h,w)*.014))
+        reach=max(8,round(min(h,w)*.04))
         shadow=np.clip((reach-depth)/max(1,reach-2),0,1)
+        shadow=shadow*shadow*(3-2*shadow)
         shadow *= valid[None,:]&(depth>=0)
         blend=np.maximum(blend,shadow.astype(np.float32))
         exact |= shadow>=1

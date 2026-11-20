@@ -6,6 +6,17 @@ from separation import anchored_alpha,composite,prepare,render,replay,trim_suppo
 from backdrop_finish import pack,unpack
 
 class SeparationTests(unittest.TestCase):
+ def test_confirmed_front_panel_recovers_shaded_side_but_not_detached_wall(self):
+  from support_geometry import complete_support_surfaces
+  rgb=np.full((300,240,3),50,np.uint8);rgb[180:250,60:100]=160;rgb[170:250,100:170]=230
+  rgb[:,10:25]=220
+  # A thin bright reflection reaches the frame but is not a prop panel.
+  rgb[250:,135:136]=200
+  seed=np.zeros((300,240),bool);seed[185:245,110:165]=True
+  full=complete_support_surfaces(rgb,seed,np.full_like(rgb,30,dtype=float))
+  self.assertTrue(full[220,70]);self.assertTrue(full[175,120])
+  self.assertFalse(full[:,15].any());self.assertFalse(full[260,120]);self.assertFalse(full[290,135])
+
  def test_support_contact_shadow_has_a_local_feather_and_no_wall_extension(self):
   from support_geometry import support_source_masks
   rgb=np.full((300,240,3),30,np.uint8);support=np.zeros((300,240),bool)
