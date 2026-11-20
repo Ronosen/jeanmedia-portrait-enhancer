@@ -50,3 +50,6 @@ PIPELINE-DEFECTS-*.md
 *.p12
 *.pfx
 
+
+# Local derived inference cache
+worker/.cache/

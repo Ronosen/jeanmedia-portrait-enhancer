@@ -133,7 +133,20 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  # Match the encoded matte used by compositing and saved-plan validation.
  # Float .02 admitted byte values 4/5 that export treats as foreground.
  protected=np.rint(alpha*255)>3
+ # A detached salient object is not proof of unwanted clutter. Preserve its
+ # source matte unless independent equipment/panel evidence identifies it.
+ # This covers hanging gowns, balloons and other unconnected photo props.
+ equipment=np.zeros(alpha.shape,np.uint8)
+ if plan.get('equipmentPlan'):
+  from equipment import polygon_mask
+  for item in plan['equipmentPlan']['repairs']:equipment |= polygon_mask(alpha.shape,item['polygon'])
+ panels=frame_panels(rgb,probability,model,objects,plan['floor'])
  overhead=corner_equipment(rgb,protected)
+ from scene_objects import intentional_props
+ prop_alpha=intentional_props(raw_alpha,protected,objects,plan['floor'],(equipment>0)|panels|overhead)
+ alpha=np.maximum(alpha,prop_alpha)
+ protected=np.rint(alpha*255)>3
+ overhead &= ~protected
  from scene_evidence import wall_surface
  if 'floorAnalysis' in plan:
   witness=unpack(plan['layers']['floorWitness'],[h,w])>0 if plan['layers'].get('floorWitness') else protected
@@ -183,6 +196,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  layers['sourceContact']=pack(source_contact.astype(np.uint8)*255)
  layers['sourceContactBlend']=pack(np.rint(source_blend*255).astype(np.uint8))
  layers['detachedClutter']=pack(orphan.astype(np.uint8)*255)
+ layers['intentionalProps']=pack(np.rint(prop_alpha*255).astype(np.uint8))
  layers['thinSupport']=pack(metal.astype(np.uint8)*255)
  layers['confirmedSupport']=pack(confirmed_support.astype(np.uint8)*255)
  layers['anchoredForegroundAlpha']=pack(np.rint(model_alpha*255).astype(np.uint8))

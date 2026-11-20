@@ -5,6 +5,17 @@ from scene_evidence import texture_finish
 
 
 class SceneObjectsTests(unittest.TestCase):
+ def test_detached_gown_and_balloon_are_protected_but_confirmed_equipment_is_not(self):
+  from scene_objects import intentional_props
+  import cv2
+  raw=np.zeros((400,300),np.float32);raw[25:250,25:85]=1
+  cv2.circle(raw,(160,55),25,1,-1);cv2.circle(raw,(45,320),20,1,-1);raw[15:110,240:290]=1
+  protected=np.zeros_like(raw,bool);protected[150:380,130:210]=True
+  equipment=np.zeros_like(raw,bool);equipment[15:110,240:290]=True
+  props=intentional_props(raw,protected,[{'class':0,'confidence':.9,'box':[120,140,220,390]}],.9,equipment)
+  self.assertEqual(props[100,50],1);self.assertEqual(props[55,160],1);self.assertEqual(props[320,45],1)
+  self.assertEqual(props[50,260],0);self.assertEqual(props[300,30],0)
+
  def test_frame_cleanup_never_removes_a_detailed_hand_missed_by_the_person_model(self):
   rgb=np.full((400,300,3),25,np.uint8);rgb[:350,:30]=160
   pp=np.zeros((400,300),np.float32);pp[100:330,60:110]=1

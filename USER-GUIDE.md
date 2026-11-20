@@ -33,7 +33,7 @@ Print width/height in cm are calculated from original pixels and selected PPI. C
 
 If a photo fails, select it to read the short error and press Auto Edit to retry. Cancel stops the current worker and remaining queue entries. No cloud upload or model download happens during editing. Hardware checks load the five small protection/detection/face models and verify the reconstruction model checksum. The approved local LaMa model reconstructs substantial holes; tiny smooth-surface marks use local healing first. Model loading and processing can take tens of seconds or longer on this CPU. The default CPU preset is appropriate for the audited 16 GB RAM / AMD 2 GB GPU system. CUDA is used only if explicitly configured and an ONNX CUDA provider is installed; otherwise CPU remains available.
 
-Technical crash logs contain only timestamp, exception type and worker version, in the current user's temporary `JeanMedia/errors.jsonl`. No image data or source filename is logged. Photographs and masks are not automatically persisted outside a project/export you choose to save.
+Technical crash logs contain only timestamp, exception type and worker version, in the current user's temporary `JeanMedia/errors.jsonl`. No image data or source filename is logged. A bounded local subject-mask cache is stored in the portable app’s worker/.cache/matting folder to speed repeated Auto Edit operations. It contains derived masks, not original photos, and is excluded from release packages. You can delete that cache while the app is closed; it will be regenerated.
 
 # Troubleshooting and release limits
 
@@ -44,3 +44,5 @@ Technical crash logs contain only timestamp, exception type and worker version, 
 - **File already exists:** choose a different filename. No overwrite mode is provided.
 
 This is a development build. Local masked LaMa reconstruction is implemented. Semantic hair/face/body-part parsing, manual brushes, signed installer distribution and broad human quality acceptance are still pending. It is not certified client-ready for every portrait.
+
+Detached salient objects are conservatively protected as possible photo props, including hanging gowns and balloons. Equipment requires independent removal evidence. This protects ambiguous objects but may also retain unwanted clutter; semantic recognition of every graduation prop is not guaranteed. Repeated Auto Edit on exactly the same pixels can reuse subject inference; new photos still require inference and background reconstruction.

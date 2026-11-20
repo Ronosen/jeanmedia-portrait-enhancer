@@ -18,7 +18,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ('README.md', 'USER-GUIDE.md', 'MODEL-MANIFEST.json',
         'MODEL-DECISIONS.md', 'LICENSE-INVENTORY.json', 'SEPARATED-WORKFLOW.md')
-SKIP = {'__pycache__', '.runtime-cache', 'WebViewData', '.git', 'tests', 'test'}
+SKIP = {'.cache', '__pycache__', '.runtime-cache', 'WebViewData', '.git', 'tests', 'test'}
 PRIVATE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.gif', '.tif', '.tiff', '.heic', '.dng', '.cr2',
                     '.cr3', '.jeanmedia', '.log', '.pyc', '.pem', '.key', '.pfx'}
 

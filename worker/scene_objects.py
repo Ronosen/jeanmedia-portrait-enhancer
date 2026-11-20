@@ -166,3 +166,21 @@ def thin_supports(rgb,alpha,objects):
                                   [max(at(a,bottom),at(b,bottom))+pad,bottom],[min(at(a,bottom),at(b,bottom))-pad,bottom]],np.int32)
                 cv2.fillPoly(result,[polygon],255)
     return result>0
+
+
+def intentional_props(raw,protected,people,floor,equipment):
+    """Keep ambiguous detached source objects; equipment needs positive evidence."""
+    result=np.zeros(protected.shape,np.float32)
+    if raw is None:return result
+    h,w=protected.shape
+    n,labels,stats,_=cv2.connectedComponentsWithStats((raw>.02).astype(np.uint8))
+    for i in range(1,n):
+        x,y,bw,bh,area=stats[i]
+        if not h*w*.0003<area<h*w*.45 or y>=floor*h:continue
+        part=labels==i;core=part&(raw>.5)
+        if core.sum()<area*.25 or (part&protected).sum()>max(16,area*.02):continue
+        # Equipment evidence must cover a meaningful part of the core, rather
+        # than one overlapping edge of a balloon or hanging sleeve.
+        if not core.any() or (equipment&core).sum()>core.sum()*.15:continue
+        result[part]=raw[part]
+    return result
