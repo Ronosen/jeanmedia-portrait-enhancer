@@ -62,15 +62,16 @@ function worker(script,args,input){
    const response=await route.fetch();
    await route.fulfill({response,body:`import {mockIPC,mockWindows} from '/node_modules/@tauri-apps/api/mocks.js';mockIPC((cmd,args)=>window.workerInvoke(cmd,args),{shouldMockEvents:true});mockWindows('main');\n`+await response.text()});
   });
-  await page.goto('http://127.0.0.1:1420');
+  await page.goto(process.env.JEANMEDIA_UI_URL||'http://127.0.0.1:1420');
   console.log('UI loaded');
+  await page.getByRole('button',{name:'Solo Edit',exact:false}).click();
   await page.getByRole('button',{name:'Open photos',exact:true}).click();
   await page.getByRole('button',{name:'Auto Edit',exact:true}).waitFor();
-  await page.waitForFunction(()=>!document.querySelector('progress'),null,{timeout:120000});
+  await page.waitForFunction(()=>!document.querySelector('.notice progress'),null,{timeout:120000});
   if(await page.getByRole('button',{name:'Auto Edit',exact:true}).isDisabled())console.log('DISABLED STATE',await page.locator('body').innerText(),errors);
   await page.getByRole('button',{name:'Auto Edit',exact:true}).click();
   console.log('Editing queue');
-  await page.waitForFunction(()=>!document.querySelector('progress'),null,{timeout:420000});
+  await page.waitForFunction(()=>!document.querySelector('.notice progress'),null,{timeout:420000});
   assert.equal(await page.locator('.queue button').count(),2);
   console.log('Queue finished',await page.locator('body').innerText());
   for(let i=0;i<2;i++){await page.locator('.queue button').nth(i).click(); const approval=page.getByLabel('Approve this result for saving');if(await approval.count()){assert(await page.getByRole('button',{name:'Save',exact:true}).isDisabled());await approval.check();}}
@@ -91,11 +92,12 @@ function worker(script,args,input){
   assert.equal(await page.locator('.queue button').count(),0);
   dialogOpen=dialogSave;
   await page.getByRole('button',{name:'Open project',exact:true}).click();
-  await page.waitForFunction(()=>!document.querySelector('progress'),null,{timeout:120000});
+  await page.waitForFunction(()=>!document.querySelector('.notice progress'),null,{timeout:120000});
   assert.equal(await page.locator('.queue button').filter({hasText:'✓'}).count(),1);
   dialogSave=path.join(root,'qa','workflow-export.png');
   await page.getByRole('button',{name:'Save',exact:true}).click();
   await page.getByText('Saved',{exact:true}).waitFor({timeout:120000});
+  await page.waitForFunction(()=>!document.querySelector('.notice progress'),null,{timeout:120000});
   assert(fs.existsSync(dialogSave));
   await page.locator('.comparison').dblclick({position:{x:80,y:100}});
   await page.getByRole('dialog',{name:'100 percent inspection'}).waitFor({timeout:120000});
@@ -106,10 +108,10 @@ function worker(script,args,input){
   // A failed/aborted worker must not leave editing locked.
   dialogOpen=['D:/test22/IMG_1083.JPG'];
   await page.getByRole('button',{name:'Open photos',exact:true}).click();
-  await page.waitForFunction(()=>!document.querySelector('progress'),null,{timeout:120000});
+  await page.waitForFunction(()=>!document.querySelector('.notice progress'),null,{timeout:120000});
   await page.getByRole('button',{name:'Auto Edit',exact:true}).click();
   await page.getByRole('button',{name:'Cancel',exact:true}).click();
-  await page.waitForFunction(()=>!document.querySelector('progress'),null,{timeout:120000});
+  await page.waitForFunction(()=>!document.querySelector('.notice progress'),null,{timeout:120000});
   assert(await page.getByRole('button',{name:'Auto Edit',exact:true}).isEnabled());
   assert.deepEqual(errors,[]);
   console.log('PASS: two-photo queue, internal masks only, undo/redo, project roundtrip, full-res export/inspection, cancellation and retry availability');

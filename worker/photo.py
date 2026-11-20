@@ -136,6 +136,7 @@ def main():
     parser.add_argument("--quality", type=int, default=96)
     parser.add_argument("--mask-output", type=Path)
     parser.add_argument("--approved", action="store_true")
+    parser.add_argument("--compact-output", action="store_true")
     parser.add_argument("--inspect-region", nargs=4, type=int)
     parser.add_argument("--request-stdin", action="store_true")
     args = parser.parse_args()
@@ -271,10 +272,13 @@ def main():
         finished = apply_correction(clean_backdrop(image, mask), lut, portrait) if lut is not None else image
         export_photo(finished, args.output, args.dpi, args.quality)
         progress("Saved", 100)
-        print(json.dumps({"saved": True, "backdropStatus": backdrop_status,
-                          "equipmentRegion": args.remove_edge_equipment,
-                          "equipmentPlan": equipment_plan,
-                          "studioPlan": studio_plan}))
+        if args.compact_output:
+            print(json.dumps({"saved": True, "backdropStatus": backdrop_status, "review": review}))
+        else:
+            print(json.dumps({"saved": True, "backdropStatus": backdrop_status,
+                              "equipmentRegion": args.remove_edge_equipment,
+                              "equipmentPlan": equipment_plan,
+                              "studioPlan": studio_plan}))
     elif args.inspect_region:
         x, y, w, h = args.inspect_region
         if min(x, y) < 0 or not 1 <= w <= 1400 or not 1 <= h <= 1400 or x+w > image.width or y+h > image.height:

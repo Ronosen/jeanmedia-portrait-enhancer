@@ -110,6 +110,9 @@ def diagnostics():
 
 
 def dispatch(action, data):
+    if action in ('batch-list', 'batch-output', 'batch-report'):
+        from batch_files import dispatch as batch_dispatch
+        return batch_dispatch(action, data)
     if action=='mask-preview':
         from local_masks import selection
         mask=selection(data['studioPlan'],data['layer'])

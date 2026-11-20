@@ -154,6 +154,16 @@ class PhotoWorkerTests(unittest.TestCase):
             self.assertLessEqual(dark, 85)
             self.assertGreater(light - dark, 65)
 
+    def test_batch_compact_export_returns_review_summary_without_large_plan(self):
+        output = self.root / 'batch.jpg'
+        result = self.run_worker('--output', str(output), '--compact-output')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertTrue(data['saved']);self.assertIsInstance(data['review'], list)
+        self.assertNotIn('studioPlan', data)
+        with Image.open(output) as image:self.assertEqual(image.size, (1400, 900))
+        self.assertEqual(hashlib.sha256(self.source.read_bytes()).digest(), self.digest)
+
     def test_exports_preserve_dimensions_dpi_and_original(self):
         for suffix, expected in [("jpg", "JPEG"), ("png", "PNG"), ("tiff", "TIFF")]:
             with self.subTest(format=expected):

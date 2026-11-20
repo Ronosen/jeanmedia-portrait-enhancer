@@ -27,3 +27,12 @@ Run `python -m unittest discover -s worker` with the pinned environment. `script
 `worker/neural.py` verifies the pinned LaMa checksum, supplies RGB/float32 inputs with a single-item batch, and pads to the model's fixed 512-square input without changing source framing. Foreground colours are excluded from temporary donor context; final pixels can change only in the selected source-resolution repair mask. Large reconstructions add review state, and saved projects cache the generated patch for deterministic replay without running inference again. Tiny isolated marks on a smooth, unoccluded surround use local healing first.
 
 New plans use `repairEngine: lama-v1`. Legacy colour-fit plans remain readable; Auto Edit is enabled to upgrade them from the original. Mask inspection now returns RGBA outlines; exported change masks remain grayscale. No network call occurs during editing. The optional installer script requires `--consent` and verifies an immutable download hash. CPU processing can take tens of seconds or longer; cancellation terminates the current worker.
+
+
+## Sequential folder batch
+
+The start page selects Solo or Batch without discarding either in-memory session. Solo retains its existing worker calls and approval guard. Batch lists source paths only, imports the current photo, invokes photo with autoEdit/enhance/output/approved/compactOutput, records the result, then opens the next. Its explicit automatic-export action permits saving review-flagged outputs and records those flags; it does not mark them as human-reviewed.
+
+The local_tool allowlist includes batch-list, batch-output and batch-report. batch-list enumerates supported files at one folder level. batch-output creates edited beside the source, refuses linked destination folders and chooses a new numbered JPEG filename on collision. The existing atomic export remains the final no-overwrite guard. batch-report atomically writes a run-specific JSON journal under edited. Stop after current waits for export and journal completion; in-session resume skips saved entries. File failures continue, while disk-space/report failures stop the loop.
+
+photo.py --compact-output returns only saved/backdropStatus/review for an export. The default Solo response is unchanged. This keeps per-photo masks and reconstruction plans out of the batch queue and avoids retaining 200 previews or replaying a separate export plan for every batch item.

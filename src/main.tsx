@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { PhotoViewport } from "./PhotoViewport";
+import { BatchEditor } from "./BatchEditor";
 import "./style.css";
 
 type Plan = { review?: string[]; [key: string]: unknown };
@@ -19,6 +20,8 @@ const needsEdit = (item: Item) => !!item.original && (!item.edited || item.resul
 function preference(key: string, fallback: number) { try { return Number(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
 
 function App() {
+  const [mode, setMode] = useState<"home" | "solo" | "batch">("home");
+  const modeRef = useRef(mode); modeRef.current = mode;
   const [items, setItems] = useState<Item[]>([]);
   const currentItems = useRef<Item[]>([]);
   const [index, setIndex] = useState(0);
@@ -60,7 +63,7 @@ function App() {
   }
   useEffect(() => {
     const drops = getCurrentWebview().onDragDropEvent(({ payload }) => {
-      if (payload.type === "drop") void run("Opening…", () => load(payload.paths));
+      if (payload.type === "drop" && modeRef.current === "solo") void run("Opening…", () => load(payload.paths));
     });
     const stages = listen<Progress>("photo-progress", event => setProgress(event.payload));
     void invoke<Record<string, unknown>>("local_tool", {action: "diagnostics", data: {}}).then(setDiagnostic).catch(() => {});
@@ -88,8 +91,17 @@ function App() {
     await invoke("photo", {source: item.source, enhance: item.edited,
       studioPlan: item.edited ? item.result?.studioPlan : undefined, output, dpi, quality, approved: item.approved});
   }
-  return <main>
+  return <>
+    {mode === "home" && <main className="mode-page"><header><strong>JeanMedia <small>Offline</small></strong></header>
+      <section className="mode-choices" aria-label="Editing mode"><h1>Choose your editing mode</h1><div>
+        <button onClick={() => setMode("solo")}><strong>Solo Edit</strong><span>Edit and review photos</span></button>
+        <button onClick={() => setMode("batch")}><strong>Batch Edit</strong><span>Edit a folder automatically</span></button>
+      </div></section>
+    </main>}
+    <div hidden={mode !== "batch"}><BatchEditor onBack={() => setMode("home")} dpi={dpi} quality={quality} setDpi={setDpi} setQuality={setQuality} /></div>
+    <div hidden={mode !== "solo"}><main>
     <header><strong>JeanMedia <small>Offline</small></strong><div className="actions">
+      <button disabled={!!busy} onClick={() => setMode("home")}>Modes</button>
       <button disabled={!!busy} onClick={() => void run("Opening…", async () => {
         const paths = await open({filters: formats, multiple: true});
         if (paths) await load(typeof paths === "string" ? [paths] : paths);
@@ -184,6 +196,6 @@ function App() {
       </div>
     </div>
     {inspection && <div className="inspection" role="dialog" aria-label="100 percent inspection"><div className="actions"><strong>100%</strong><button onClick={() => setInspectionOriginal(!inspectionOriginal)}>{inspectionOriginal?"After":"Before"}</button><button onClick={() => setInspection(undefined)}>Close</button></div><div className="pixel-view"><img src={inspectionOriginal?inspection.before:inspection.after} alt="Full resolution inspection" /></div></div>}
-  </main>;
+  </main></div></>;
 }
 createRoot(document.getElementById("root")!).render(<App />);

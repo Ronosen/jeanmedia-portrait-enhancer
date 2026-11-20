@@ -5,7 +5,7 @@ portable build in the adjacent `release` folder. In a downloaded portable ZIP,
 extract the whole folder and double-click its **jeanmedia.exe**; keep the bundled
 Python, worker and dependencies beside it.
 
-Open or drop one or more JPEG, PNG or TIFF photographs, then press **Auto Edit**. Photos are processed sequentially on this computer. Original files are never overwritten.
+Choose **Solo Edit** on the start page. Open or drop one or more JPEG, PNG or TIFF photographs, then press **Auto Edit**. Photos are processed sequentially on this computer. Original files are never overwritten.
 
 New edits measure native-resolution noise and apply restrained noise reduction and detail sharpening without inventing facial detail. Sharpening is reduced in noisy areas and face regions.
 
@@ -21,11 +21,11 @@ New Auto Edit results also smooth measured backdrop folds and protect short supp
 
 Select a photo in the queue to view it. Scroll the mouse wheel inside the picture area to zoom toward the pointer, then drag to pan. **Fit** resets the view; switching photos also resets it. The before/after comparison stays aligned while zooming. Press **100%** or double-click a part of the image for original-resolution inspection. Undo/Redo are per photo. Auto Edit retries unfinished or undone items.
 
-A **Needs review** result requires your approval before saving. An error means cleanup stopped; the photo has not been successfully edited. Protecting an uncertain seat or subject takes priority over filling that area. Large or complex floor reconstructions require review; insufficient context can still prevent repair. Inspect hair, hands, shoes, seats, shadows and filled areas before approving.
+In Solo Edit, a **Needs review** result requires your approval before saving. An error means cleanup stopped; the photo has not been successfully edited. Protecting an uncertain seat or subject takes priority over filling that area. Large or complex floor reconstructions require review; insufficient context can still prevent repair. Inspect hair, hands, shoes, seats, shadows and filled areas before approving.
 
 **Save** writes a new original-resolution JPEG, PNG or TIFF. Existing files are refused. A complete temporary file is published atomically so cancellation cannot leave a damaged final export. A cancelled save may leave a `.jeanmedia-*.tmp` beside the destination; that temporary file can be deleted when no save is running. The source is not used for temporary output.
 
-The **⋯** menu holds projects, batch export, change-mask export, print metadata, JPEG quality and hardware diagnostics. **Save queue** skips unapproved review results and reports skipped or failed entries. Batch names have a sequence number. TIFF uses its filename extension. PNG preserves alpha when the source supports it; automatic studio cleanup currently requires opaque RGB input.
+The **⋯** menu holds projects, manual queue export, print metadata, JPEG quality and hardware diagnostics. **Save queue** skips unapproved review results and reports skipped or failed entries. Batch names have a sequence number. TIFF uses its filename extension. PNG preserves alpha when the source supports it; automatic studio cleanup currently requires opaque RGB input.
 
 A `.jeanmedia` project stores the source reference and hash, repair layers, model hashes, settings, approval and edit history. Keep the original alongside the project. Reopening refuses a missing or changed original. Save projects using a new name. Projects contain private source references and masks: store them in your own protected folders. Clear session discards in-memory previews; it does not delete originals, saved projects or exports. Delete those explicitly through Windows Explorer when required.
 
@@ -48,3 +48,14 @@ This is a development build. Local masked LaMa reconstruction is implemented. Se
 Detached salient objects are conservatively protected as possible photo props, including hanging gowns and balloons. Equipment requires independent removal evidence. This protects ambiguous objects but may also retain unwanted clutter; semantic recognition of every graduation prop is not guaranteed. Repeated Auto Edit on exactly the same pixels can reuse subject inference; new photos still require inference and background reconstruction.
 
 When the wall/floor boundary cannot be measured reliably, broad backdrop smoothing is withheld and the original surface texture and contact shadows are preserved. Independently detected equipment may still be repaired. Some backdrop folds can remain in these uncertain scenes.
+
+
+# Automatic Batch Edit
+
+Choose **Batch Edit**, **Choose folder**, then **Start batch**. Supported photographs in that folder are processed one at a time: open, Auto Edit, save the full-resolution JPEG, then open the next. Subfolders are not scanned, so the output folder is not loaded again.
+
+Results are saved beside the originals in **edited**, using the source basename. Existing files are preserved: a numbered name is used when needed. The current Solo PPI and JPEG-quality preferences are used and can be changed under Batch Export settings before starting.
+
+Batch automatically saves results carrying review flags, as requested for unattended processing. **Saved � Review** identifies those files. Inspect them before client delivery. A local batch report in edited records saved filenames, review notes and errors after every attempt. Unreadable photos are recorded as failed and the next file is attempted; disk-space or report-write failures stop the run.
+
+**Stop after current** finishes and saves the active photo, then stops. **Resume batch** skips already saved items and retries unfinished/failed items. Switching modes preserves both sessions while the app remains open. Closing the app ends the run; completed files and the report remain. Selecting the folder again after restarting begins a new batch and uses numbered output names to preserve earlier exports.

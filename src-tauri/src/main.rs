@@ -42,7 +42,7 @@ fn python_command(script_name: &str) -> Command {
 
 #[tauri::command]
 async fn local_tool(action: String, data: Value) -> Result<Value, String> {
-    if !["save-project", "open-project", "diagnostics", "mask"].contains(&action.as_str()) {
+    if !["save-project", "open-project", "diagnostics", "mask", "batch-list", "batch-output", "batch-report"].contains(&action.as_str()) {
         return Err("Unknown local operation".into());
     }
     tauri::async_runtime::spawn_blocking(move || {
@@ -73,6 +73,7 @@ async fn photo(
     dpi: Option<u32>,
     quality: Option<u32>,
     approved: Option<bool>,
+    compact_output: Option<bool>,
     inspect_region: Option<[u32; 4]>,
     mask_output: Option<String>,
 ) -> Result<Value, String> {
@@ -129,6 +130,7 @@ async fn photo(
         }
         if let Some(value) = quality { command.arg("--quality").arg(value.to_string()); }
         if approved == Some(true) { command.arg("--approved"); }
+        if compact_output == Some(true) { command.arg("--compact-output"); }
         if let Some(region) = inspect_region { command.arg("--inspect-region").args(region.map(|x| x.to_string())); }
         if let Some(path) = mask_output { command.arg("--mask-output").arg(path); }
         command.arg("--request-stdin").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());

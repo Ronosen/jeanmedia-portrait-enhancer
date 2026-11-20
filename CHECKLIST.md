@@ -18,6 +18,7 @@
 - [x] Confirm app name: JeanMedia Portrait Enhancer.
 - [x] Choose offline-first Windows desktop delivery.
 - [x] Support single-photo editing and batch queues.
+- [x] Provide a Solo/Batch start page and sequential open/edit/save batch processing into the source folder's edited subfolder.
 - [ ] Define three modes: Quick Clean, Studio Repair, and Advanced Manual Review.
 - [ ] Require preservation of face, expression, hair, body, pose, clothing, accessories and footwear.
 - [ ] Preserve important props; allow surface cleaning with no additions by default.
