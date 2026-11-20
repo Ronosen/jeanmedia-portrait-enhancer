@@ -27,7 +27,7 @@ def support_contacts(alpha,support,props=None):
     return contact
 
 
-def support_source_masks(rgb,model,alpha,support,props):
+def support_source_masks(rgb,model,alpha,support,props,floor=None):
     contact=support_contacts(alpha,support,props)
     radius=max(2,round(min(support.shape)*.005))
     distance=cv2.distanceTransform(contact.astype(np.uint8),cv2.DIST_L2,3)
@@ -39,6 +39,19 @@ def support_source_masks(rgb,model,alpha,support,props):
     surface=near&(rgb.mean(axis=2)-model.mean(axis=2)>10)
     exact=surface|props|(blend>=1)
     blend[exact]=1
+    if floor is not None:
+        # Preserve the photographed contact shadow beneath each measured base.
+        # Bright-only rim recovery discarded its dark pixels, leaving notches
+        # when the neighbouring floor was reconstructed.
+        h,w=support.shape;yy=np.arange(h)[:,None]
+        bottom=np.where(support,yy,-1).max(axis=0)
+        valid=bottom>=round(floor*h)-max(3,round(h*.025))
+        depth=yy-bottom[None,:]
+        reach=max(4,round(min(h,w)*.014))
+        shadow=np.clip((reach-depth)/max(1,reach-2),0,1)
+        shadow *= valid[None,:]&(depth>=0)
+        blend=np.maximum(blend,shadow.astype(np.float32))
+        exact |= shadow>=1
     return exact,blend.astype(np.float32)
 
 

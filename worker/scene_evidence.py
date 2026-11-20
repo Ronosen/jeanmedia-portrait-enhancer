@@ -175,7 +175,7 @@ def texture_finish(gray,safe):
     return delta.astype(np.float32),float(strength.max()),float(np.max(np.abs(residual[safe]))) if safe.any() else 0.
 
 
-def local_finish(gray, safe):
+def local_finish(gray, safe, bounded=False):
     """Remove measured ridges while retaining broad illumination and grain."""
     h, w = gray.shape
     yy, xx = np.mgrid[:h, :w]
@@ -191,6 +191,10 @@ def local_finish(gray, safe):
         weights = np.sqrt(np.minimum(1, 3 / np.maximum(np.abs(residual), .01)))
         coefficients = np.linalg.lstsq(a * weights[:, None], b * weights, rcond=None)[0]
     illumination = design @ coefficients
+    if bounded:
+        # Occluded edges cannot justify extrapolating negative illumination.
+        lo,hi=np.percentile(gray[safe],[10,90])
+        illumination=np.clip(illumination,lo,hi)
     valid = safe.astype(np.float32)
     sigma = max(4, min(h, w) * .025)
     small_norm = cv2.GaussianBlur(valid, (0, 0), 1.2)

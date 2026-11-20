@@ -6,6 +6,26 @@ from separation import anchored_alpha,composite,prepare,render,replay,trim_suppo
 from backdrop_finish import pack,unpack
 
 class SeparationTests(unittest.TestCase):
+ def test_support_contact_shadow_has_a_local_feather_and_no_wall_extension(self):
+  from support_geometry import support_source_masks
+  rgb=np.full((300,240,3),30,np.uint8);support=np.zeros((300,240),bool)
+  support[190:260,80:160]=True;rgb[support]=220;rgb[260:264,80:160]=8
+  exact,blend=support_source_masks(rgb,np.full_like(rgb,30,dtype=float),np.zeros((300,240),np.float32),support,np.zeros_like(support),.6)
+  self.assertTrue(exact[260,110]);self.assertGreater(blend[262,110],0)
+  self.assertEqual(blend[280,110],0);self.assertEqual(blend[175,110],0)
+  self.assertEqual(blend[261,40],0)
+
+ def test_saved_floor_fringe_is_preserved_and_opaque_overlap_still_rejected(self):
+  source=Image.new('RGB',(40,40),(30,30,30));a=np.zeros((40,40),np.uint8);a[32,20]=4
+  hole=np.zeros_like(a);hole[32,20]=255
+  plan={'floor':.5,'separation':{'version':1},'layers':{'shape':[40,40],'source':pack(np.asarray(source)),
+        'foregroundAlpha':pack(a),'backdrop':pack(np.zeros_like(a))},
+        'floorRepairs':{'version':1,'shape':[40,40],'defects':pack(np.zeros_like(a)),'extension':pack(hole)}}
+  with patch('separation.render',return_value=source):replay(source,source,plan,True)
+  self.assertFalse(unpack(plan['floorRepairs']['extension'],[40,40]).any())
+  a[32,20]=255;plan['layers']['foregroundAlpha']=pack(a);plan['floorRepairs']['extension']=pack(hole)
+  with self.assertRaisesRegex(ValueError,'overlaps'):replay(source,source,plan,True)
+
  def test_shaded_top_can_match_the_fitted_background_but_still_belong_to_the_seat(self):
   from support_geometry import attached_props
   rgb=np.full((300,240,3),25,np.uint8);rgb[:,:16]=160

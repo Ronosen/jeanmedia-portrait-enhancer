@@ -17,6 +17,8 @@ the supplied photo; exact original material colours require a calibrated referen
 These settings are saved with the edit and used for preview, inspection and export.
 Older projects retain their previous finishing until Auto Edit is run again.
 
+New Auto Edit results also smooth measured backdrop folds and protect short supporting footrests and their contact shadows. Run Auto Edit again on older results to use these changes.
+
 Select a photo in the queue to view it. Scroll the mouse wheel inside the picture area to zoom toward the pointer, then drag to pan. **Fit** resets the view; switching photos also resets it. The before/after comparison stays aligned while zooming. Press **100%** or double-click a part of the image for original-resolution inspection. Undo/Redo are per photo. Auto Edit retries unfinished or undone items.
 
 A **Needs review** result requires your approval before saving. An error means cleanup stopped; the photo has not been successfully edited. Protecting an uncertain seat or subject takes priority over filling that area. Large or complex floor reconstructions require review; insufficient context can still prevent repair. Inspect hair, hands, shoes, seats, shadows and filled areas before approving.

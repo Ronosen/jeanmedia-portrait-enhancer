@@ -260,3 +260,18 @@ plan controls a small bilateral filter and thresholded luminance sharpening.
 Face regions receive less sharpening, hard edges cannot exceed local extrema,
 and overlapping tiles prevent processing seams. No face restoration or new
 image detail is generated. Plans without detail settings keep revision-16 output.
+
+## Backdrop folds and prop bases — revision 18
+
+New plans fit smooth illumination from the measured wall surface, retain grain,
+and bound the target to observed wall brightness. Deep neutral folds remain
+eligible even when hue is unreliable. Corrections fade at the measured floor
+boundary and exclude the protected subject/prop masks.
+
+Short bright footrests require direct person contact rather than proximity alone.
+The source layer includes a narrowly feathered contact shadow beneath each
+measured supporting base. This prevents reconstructed floor from breaking its
+outline or making it float. Planner and export both protect encoded alpha values
+above 3; legacy 4/5-alpha floor overlaps are removed from repair masks on replay,
+while opaque overlaps still fail validation. Existing projects keep cached
+finishing until Auto Edit is explicitly rerun.

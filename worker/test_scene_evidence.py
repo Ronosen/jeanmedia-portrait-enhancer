@@ -68,6 +68,20 @@ class SceneEvidenceTests(unittest.TestCase):
         self.assertEqual(out.tobytes(),rgb.tobytes())
         self.assertEqual(plan['backdropFinish']['action'],'preserve')
 
+    def test_new_smoothing_follows_wall_mask_and_preserves_contacting_prop(self):
+        h,w=400,300;yy,xx=np.mgrid[:h,:w]
+        light=35+8*xx/w+15*np.sin(xx/12)*np.exp(-((yy-180)/100)**4)
+        rgb=np.repeat(np.rint(light)[...,None],3,axis=2).astype(np.uint8)
+        protected=np.zeros((h,w),bool);protected[70:350,130:170]=True
+        protected[300:340,90:140]=True;rgb[protected]=190
+        rgb[350:]=65
+        plan=self.plan(protected,.875);plan['separation']['backdropMethod']='local-evidence-v5'
+        plan['layers']['wallSurface']=pack((yy<345).astype(np.uint8)*255)
+        out=np.asarray(finish(Image.fromarray(rgb),plan))
+        self.assertLess(out[130:220,20:100,0].std(),rgb[130:220,20:100,0].std()*.5)
+        np.testing.assert_array_equal(out[protected],rgb[protected])
+        np.testing.assert_array_equal(out[345:],rgb[345:])
+
     def plan(self,subject,floor):
         return {'adaptiveRevision':3,'floor':floor,'separation':{'version':1,'backdropMethod':'local-evidence-v2'},
                 'layers':{'shape':list(subject.shape),'protected':pack(subject.astype(np.uint8)*255)}}

@@ -86,7 +86,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def publish(repo, tag, title, notes, commit, assets):
+def publish(repo, tag, title, notes, commit, assets, stage_only=False):
     env = dict(os.environ, GIT_TERMINAL_PROMPT='0', GCM_INTERACTIVE='Never')
     credentials = subprocess.run(['git', 'credential', 'fill'], cwd=ROOT,
         input='protocol=https\nhost=github.com\n\n', text=True,
@@ -136,7 +136,10 @@ def publish(repo, tag, title, notes, commit, assets):
         if result.get('state') != 'uploaded' or result['size'] != asset.stat().st_size or result.get('digest') != 'sha256:' + sha256(asset):
             raise ValueError('Uploaded asset verification failed: ' + asset.name)
         print('Verified', asset.name, flush=True)
-    published = request('PATCH', release['url'], {'draft': False})
+    if stage_only:
+        print('Staged verified draft assets; publication is still pending.', flush=True)
+        return
+    published = request('PATCH', release['url'], {'draft': False, 'body': notes})
     verified = request('GET', published['url'])
     if verified['draft'] or len(verified['assets']) < len(assets):
         raise ValueError('Release publication could not be verified')
@@ -149,7 +152,9 @@ def main():
     parser.add_argument('--tag', required=True)
     parser.add_argument('--title', required=True)
     parser.add_argument('--notes', type=Path, required=True)
-    parser.add_argument('--publish', action='store_true')
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--publish', action='store_true')
+    mode.add_argument('--stage', action='store_true', help='Upload verified assets but keep the release draft for final QA')
     args = parser.parse_args()
     if not re.fullmatch(r'v[0-9][A-Za-z0-9._-]*', args.tag):
         raise ValueError('Use a version tag starting with v and a digit')
@@ -161,8 +166,8 @@ def main():
     commit = git('rev-parse', 'HEAD')
     assets = package(args.bundle.resolve(), args.tag, commit)
     print('Verified assets:', ', '.join(p.name for p in assets), flush=True)
-    if args.publish:
-        publish(match[1], args.tag, args.title, args.notes.read_text(encoding='utf-8'), commit, assets)
+    if args.publish or args.stage:
+        publish(match[1], args.tag, args.title, args.notes.read_text(encoding='utf-8'), commit, assets, args.stage)
 
 
 if __name__ == '__main__':

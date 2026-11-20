@@ -137,6 +137,7 @@ def support_shapes(rgb, person, protected, model, floor):
     rows = np.flatnonzero(person.any(axis=1))
     below = rows[0] + .4 * (rows[-1] - rows[0])
     padding = max(5, round(min(height, width) * .025))
+    direct_contact=cv2.dilate(person.astype(np.uint8),np.ones((9,9),np.uint8))>0
     candidates = []
     for label in range(1, count):
         x, y, w, h, area = stats[label]
@@ -147,9 +148,16 @@ def support_shapes(rgb, person, protected, model, floor):
             part=labels==label
             cropped=(np.median(rgb[part].mean(axis=1))>100 and
                      np.median(rgb[part].mean(axis=1)-model[part].mean(axis=1))>35)
+        broad=area > width*height*.005 and w>width*.08 and h>height*.06
+        # A footrest can be much shorter than a seat. Require direct contact
+        # with the person and a compact bright surface, not proximity alone.
+        footrest=(area>width*height*.0015 and area<width*height*.08
+                  and w>width*.06 and h>height*.025 and h<height*.18
+                  and y>rows[0]+(rows[-1]-rows[0])*.55
+                  and (direct_contact&(labels==label)).any()
+                  and np.median(rgb[labels==label].mean(axis=1))>145)
         if (below < y < rows[-1] + height * .08 and (y+h < height * .98 or cropped)
-                and area > width * height * .005 and w > width * .08
-                and h > height * .06 and area / (w*h) > .55):
+                and (broad or footrest) and area / (w*h) > .55):
             candidates.append(label)
     contact = cv2.dilate(protected.astype(np.uint8), np.ones((45, 45), np.uint8)).astype(bool)
     linked = set(np.unique(labels[contact]))

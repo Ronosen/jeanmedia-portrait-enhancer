@@ -114,7 +114,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
   alpha[props]=1
   # Bright support surfaces can have shaded rims below the old white-hull
   # threshold. They remain source geometry, including the rim beneath books.
-  source_contact,source_blend=support_source_masks(rgb,model,model_alpha,support,props)
+  source_contact,source_blend=support_source_masks(rgb,model,model_alpha,support,props,plan['floor'])
   alpha=np.maximum(alpha,source_blend)
   alpha[source_contact]=1
  source_contact |= metal;source_blend[metal]=1
@@ -128,7 +128,9 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  distance=cv2.distanceTransform((alpha<.5).astype(np.uint8),cv2.DIST_L2,3)
  alpha[(yy>=round(plan['floor']*h))&(alpha<.5)&(distance>4)]=0
  # Reconstruction may run right up to the true matte, never a padded silhouette.
- protected=alpha>.02
+ # Match the encoded matte used by compositing and saved-plan validation.
+ # Float .02 admitted byte values 4/5 that export treats as foreground.
+ protected=np.rint(alpha*255)>3
  overhead=corner_equipment(rgb,protected)
  from scene_evidence import wall_surface
  if 'floorAnalysis' in plan:
@@ -184,7 +186,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  layers['anchoredForegroundAlpha']=pack(np.rint(model_alpha*255).astype(np.uint8))
  plan['sceneObjects']={'detachedClutterCount':orphan_count,'thinSupportPixels':int(metal.sum()),'overheadEquipmentPixels':int(overhead.sum()),'framePanelPixels':int(frame_panel_extent.sum()),'frameMaskLeakPixels':int(frame_panels_leaked.sum())}
  plan['surfaceContour']=contour
- plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v3','backdropMethod':'local-evidence-v4'}
+ plan['separation']={'version':1,'model':'birefnet-general-lite','workflow':'extract-clean-composite','floorMethod':'context-crop-v3','backdropMethod':'local-evidence-v5'}
  if selected.mean()>.04:
   message='Large background reconstruction needs review.'
   if message not in plan.setdefault('review',[]):plan['review'].append(message)
@@ -230,7 +232,7 @@ def render(source,selected,plan):
   plate.update(floorRepairs=plan['floorRepairs'],floor=plan['floor'],adaptiveRevision=plan.get('adaptiveRevision',3))
  progress('Removing subjects from background plate',60)
  background=repair(source,holes,np.zeros(shape,bool),plate)
- if plan.get('separation',{}).get('backdropMethod') in ('local-evidence-v3','local-evidence-v4'):
+ if plan.get('separation',{}).get('backdropMethod') in ('local-evidence-v3','local-evidence-v4','local-evidence-v5'):
   wall=unpack(plan['layers']['wallSurface'],shape)>0
   weight=np.clip(cv2.distanceTransform(wall.astype(np.uint8),cv2.DIST_L2,3)/max(4,shape[0]*.02),0,1)
   clutter=unpack(plan['layers']['clutter'],shape)>0
@@ -300,7 +302,16 @@ def replay(image,preview,plan,export):
  if source is None or source.shape!=np.asarray(preview).shape or not np.array_equal(source,np.asarray(preview)):
   raise ValueError('Saved separation belongs to a different source photo. Run Auto Edit again.')
  matte=unpack(plan['layers']['foregroundAlpha'],shape)
- if plan.get('floorRepairs'):validate_floor_patches(matte>3,plan['floor'],plan['floorRepairs'])
+ if plan.get('floorRepairs'):
+  # Older planners used a float threshold that missed these two alpha levels.
+  # Preserve the fringe instead of rejecting an otherwise valid saved edit.
+  from floor import decode_mask
+  fringe=(matte>3)&(matte<=5)
+  for kind in ('defects','extension'):
+   mask=decode_mask(plan['floorRepairs'][kind],tuple(shape))
+   if np.any((mask>0)&fringe):
+    mask[fringe]=0;plan['floorRepairs'][kind]=pack(mask)
+  validate_floor_patches(matte>3,plan['floor'],plan['floorRepairs'])
  selected=unpack(plan['layers']['backdrop'],shape)>0
  out=render(preview,selected,plan)
  full=render(image,selected,plan) if export else image

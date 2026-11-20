@@ -8,6 +8,17 @@ from studio import prepare_backdrop, render_backdrop
 
 
 class StudioBackdropTests(unittest.TestCase):
+    def test_short_footrest_contact_is_preserved_but_detached_small_box_is_not(self):
+        from studio import support_shapes
+        rgb=np.full((400,300,3),30,np.uint8)
+        person=np.zeros((400,300),bool);person[50:321,120:140]=True
+        rgb[person]=(90,65,45)
+        rgb[321:343,95:150]=190
+        rgb[321:343,210:265]=190
+        _,found,support=support_shapes(rgb,person,person.copy(),np.full_like(rgb,30,dtype=float),.75)
+        self.assertTrue(found);self.assertTrue(support[335,120])
+        self.assertFalse(support[335,235])
+
     def test_floor_refinement_retains_an_already_confirmed_seat_surface(self):
         from types import SimpleNamespace
         from studio import clean_studio
@@ -91,7 +102,7 @@ class StudioBackdropTests(unittest.TestCase):
                 full,after,plan,status=auto_edit(image,image,True)
             self.assertEqual(status,'Needs review')
             self.assertEqual(plan['adaptiveRevision'],3)
-            self.assertEqual(plan['processingRevision'],17)
+            self.assertEqual(plan['processingRevision'],18)
             self.assertEqual(image.tobytes(),after.tobytes())
             self.assertEqual(change_mask(plan).getbbox(),None)
             _,replay,_=clean_studio(image,image,plan,export=True)
