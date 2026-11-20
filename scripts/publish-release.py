@@ -123,8 +123,20 @@ def publish(repo, tag, title, notes, commit, assets, stage_only=False):
     except urllib.error.HTTPError as error:
         if error.code != 404:
             raise
-        release = request('POST', api + '/releases', {'tag_name': tag, 'target_commitish': commit,
-            'name': title, 'body': notes, 'draft': True, 'prerelease': True})
+        # GitHub's tag endpoint can omit drafts. Resume a staged upload by
+        # listing authenticated releases before creating another draft.
+        candidates=[]
+        page=1
+        while True:
+            batch=request('GET',api+'/releases?per_page=100&page='+str(page))
+            candidates.extend(item for item in batch if item['tag_name']==tag)
+            if len(batch)<100:break
+            page+=1
+        if candidates:
+            release=max(candidates,key=lambda item:len(item.get('assets',[])))
+        else:
+            release = request('POST', api + '/releases', {'tag_name': tag, 'target_commitish': commit,
+                'name': title, 'body': notes, 'draft': True, 'prerelease': True})
     if not release['draft'] or release['target_commitish'] != commit:
         raise ValueError('Release/tag already exists; choose a new version instead of replacing it')
     existing = {item['name']: item for item in request('GET', release['assets_url'] + '?per_page=100')}
