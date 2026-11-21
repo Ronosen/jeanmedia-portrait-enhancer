@@ -142,7 +142,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
   from cropped_backdrop import assess as assess_crop,frame_intrusions
   crop_wall,independent,crop_evidence=assess_crop(rgb,protected,model)
   plan['croppedBackdropEvidence']=crop_evidence
-  independent |= frame_intrusions(rgb,protected,model)
+  independent |= frame_intrusions(rgb,protected,model,plan.get('sceneCleanupRevision',22))
   equipment[independent]=255
  if plan.get('equipmentPlan'):
   from equipment import polygon_mask

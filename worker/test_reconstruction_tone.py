@@ -22,5 +22,20 @@ class ReconstructionToneTests(unittest.TestCase):
  def test_existing_good_repair_is_not_retoned(self):
   src,_,plan,mask,body=self.fixture();out=match(Image.fromarray(src),Image.fromarray(src),plan)
   np.testing.assert_array_equal(np.array(out),src);self.assertEqual(plan['reconstructionTone']['components'],0)
+ def test_colour_transfer_fades_before_the_measured_repair_boundary(self):
+  src,repaired,plan,mask,body=self.fixture();plan['sceneCleanupRevision']=23
+  out=np.array(match(Image.fromarray(src),Image.fromarray(repaired),plan))
+  delta=out.astype(float)-repaired
+  self.assertLess(abs(delta[20,34]).max(),3)
+  self.assertGreater(abs(delta[20,15]).min(),40)
+  np.testing.assert_array_equal(out[mask==0],repaired[mask==0])
+
+ def test_protected_prop_holes_do_not_retain_a_bright_repair_rim(self):
+  src,repaired,plan,mask,body=self.fixture();plan['sceneCleanupRevision']=23
+  body[:45,20:30]=255;mask[:45,20:30]=0
+  plan['layers']['protected']=pack(body);plan['layers']['clutter']=pack(mask)
+  out=np.array(match(Image.fromarray(src),Image.fromarray(repaired),plan))
+  self.assertGreater(abs(out[20,19].astype(float)-repaired[20,19]).min(),40)
+  np.testing.assert_array_equal(out[body>0],repaired[body>0])
 
 if __name__=='__main__':unittest.main()

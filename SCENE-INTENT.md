@@ -60,6 +60,17 @@ reconstruction blending remain separate problems. Incorrectly identified
 equipment or missing masks still need review. It is not a guarantee that every
 object will be classified correctly or every output will be client-ready.
 
+## Repair boundaries
+
+New cleanup revision 23 includes the contact shadow of measured top-edge studio
+hardware in its reconstruction mask. The margin follows detected equipment,
+respects foreground protection and stays above the measured subject extent;
+it does not introduce a fixed horizontal boundary or change floor repair.
+Reconstruction colour transfer fades into the existing backdrop inside the
+repair mask, avoiding a sharp join. Protected prop holes do not cause that fade,
+so they do not retain a bright reconstructed rim. Older saved plans keep their
+previous rendering behavior. The native window title identifies revision r23.
+
 ## Teeth and eye whites
 
 New portrait plans record `retouchAssessment.version = 2`. Visible enamel and

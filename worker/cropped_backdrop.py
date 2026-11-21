@@ -2,7 +2,7 @@
 import cv2
 import numpy as np
 
-def frame_intrusions(rgb,protected,reference):
+def frame_intrusions(rgb,protected,reference,revision=22):
  """Measured exposed studio borders; independent of any floor estimate."""
  h,w=protected.shape;safe=~cv2.dilate(protected.astype(np.uint8),np.ones((7,7),np.uint8)).astype(bool)
  material=(np.max(np.abs(rgb.astype(float)-reference),axis=2)>50)&safe
@@ -29,7 +29,16 @@ def frame_intrusions(rgb,protected,reference):
    size=max(9,round(min(h,w)*.04))|1
    nearby=cv2.dilate(result.astype(np.uint8),np.ones((size,size),np.uint8))>0
    result |= nearby&different&upper&safe
- return (cv2.dilate(result.astype(np.uint8),np.ones((9,9),np.uint8))>0)&safe
+ result=(cv2.dilate(result.astype(np.uint8),np.ones((9,9),np.uint8))>0)&safe
+ if revision>=23 and len(rows):
+  # Include the apparatus' dark contact shadow below a bright rail. Colour
+  # contrast alone misses that shadow because it resembles the black cloth.
+  # Follow the measured gear edge; never introduce a fixed horizon or floor.
+  upper=np.arange(h)[:,None]<np.median(rows)
+  radius=max(5,round(min(h,w)*.02))
+  kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2*radius+1,2*radius+1))
+  result|=(cv2.dilate((result&upper).astype(np.uint8),kernel)>0)&upper&safe
+ return result
 
 def assess(rgb,protected,reference):
  h,w=protected.shape;empty=np.zeros((h,w),bool)

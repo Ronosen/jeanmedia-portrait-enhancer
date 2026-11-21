@@ -4,6 +4,11 @@ import cv2
 from cropped_backdrop import assess,frame_intrusions
 
 class CroppedBackdropTests(unittest.TestCase):
+ def test_shadow_below_measured_rail_is_repaired_without_extending_into_floor(self):
+  rgb=np.full((200,180,3),25,np.uint8);rgb[:15]=190;rgb[15:23]=5
+  body=np.zeros((200,180),bool);body[55:185,70:110]=True;ref=np.full(rgb.shape,25,float)
+  old=frame_intrusions(rgb,body,ref,22);new=frame_intrusions(rgb,body,ref,23)
+  self.assertFalse(old[22,20]);self.assertTrue(new[22,20]);self.assertFalse(new[130:].any());self.assertFalse((new&body).any())
  def fixture(self):
   rgb=np.full((400,300,3),190,np.uint8);body=np.zeros((400,300),bool);body[80:,110:200]=True;rgb[body]=(140,80,50)
   cv2.fillPoly(rgb,[np.array([[260,0],[299,0],[299,180],[275,130]])],(15,15,15))

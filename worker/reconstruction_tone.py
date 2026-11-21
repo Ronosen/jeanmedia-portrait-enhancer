@@ -47,6 +47,16 @@ def match(source,background,plan):
   gain=np.clip(spread/np.maximum(1,repaired_spread),.05,1)
   target=local[part]+desired+(repair_residual-actual)*gain
   correction[part]=np.clip(target-predicted[part],-100,100)
+  if plan.get('sceneCleanupRevision',0)>=23:
+   # Neural reconstruction already meets the original at the mask edge.
+   # Fade colour transfer inside that measured hole so its correction cannot
+   # introduce a new contour along the old apparatus silhouette.
+   # Protected holes are composited back from the source; they are not a
+   # junction with healthy background and must not keep a bright repair rim.
+   foreground_guard=cv2.dilate(protected.astype(np.uint8),np.ones((9,9),np.uint8))>0
+   distance=cv2.distanceTransform((part|foreground_guard).astype(np.uint8),cv2.DIST_L2,3)
+   t=np.clip((distance-1)/max(5,min(h,w)*.035),0,1)
+   correction[part]*=(t*t*(3-2*t))[part,None]
   count+=1
  plan['reconstructionTone']={'version':1,'components':count,'method':'observed-donor-residual-v1'}
  if not count:return background

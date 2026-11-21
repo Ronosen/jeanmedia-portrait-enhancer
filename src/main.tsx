@@ -16,7 +16,7 @@ type Project = { source: string; studioPlan?: Plan; enhance: boolean; approved: 
 const formats = [{ name: "Photos", extensions: ["jpg", "jpeg", "png", "tif", "tiff"] }];
 const projects = [{ name: "JeanMedia project", extensions: ["jeanmedia"] }];
 const filename = (path: string) => path.split(/[\\/]/).pop() || "photo";
-const needsEdit = (item: Item) => !!item.original && (!item.edited || item.result?.studioPlan?.processingRevision !== 22);
+const needsEdit = (item: Item) => !!item.original && (!item.edited || item.result?.studioPlan?.processingRevision !== 23);
 function preference(key: string, fallback: number) { try { return Number(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
 
 function App() {
