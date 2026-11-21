@@ -54,7 +54,18 @@ def match(source,background,plan):
    # Protected holes are composited back from the source; they are not a
    # junction with healthy background and must not keep a bright repair rim.
    foreground_guard=cv2.dilate(protected.astype(np.uint8),np.ones((9,9),np.uint8))>0
-   distance=cv2.distanceTransform((part|foreground_guard).astype(np.uint8),cv2.DIST_L2,3)
+   # The upper-body safety cutoff is not a visible source/repair boundary.
+   # Treat its excluded region as continuous when measuring the blend so
+   # that a component crossing the cutoff cannot acquire a horizontal band.
+   surface=part|foreground_guard|~upper
+   # A rail shadow joins the backdrop beneath the apparatus. Measure that
+   # downward join only: fading at side-panel edges retains a pale vertical
+   # stripe instead of correcting the reconstructed panel completely.
+   next_edge=np.minimum.accumulate(np.where(~surface,yy,h)[::-1],axis=0)[::-1]
+   # Limit this transition to hardware above the measured foreground. Side
+   # repairs lower in the scene keep full colour correction, including where
+   # a panel mask terminates; otherwise they can retain a rectangular remnant.
+   distance=np.where(next_edge<=np.percentile(rows,5),next_edge-yy,h)
    t=np.clip((distance-1)/max(5,min(h,w)*.035),0,1)
    correction[part]*=(t*t*(3-2*t))[part,None]
   count+=1

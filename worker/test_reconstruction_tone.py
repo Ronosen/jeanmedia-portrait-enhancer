@@ -26,8 +26,9 @@ class ReconstructionToneTests(unittest.TestCase):
   src,repaired,plan,mask,body=self.fixture();plan['sceneCleanupRevision']=23
   out=np.array(match(Image.fromarray(src),Image.fromarray(repaired),plan))
   delta=out.astype(float)-repaired
-  self.assertLess(abs(delta[20,34]).max(),3)
+  self.assertLess(abs(delta[44,15]).max(),3)
   self.assertGreater(abs(delta[20,15]).min(),40)
+  self.assertGreater(abs(delta[20,34]).min(),40)
   np.testing.assert_array_equal(out[mask==0],repaired[mask==0])
 
  def test_protected_prop_holes_do_not_retain_a_bright_repair_rim(self):
@@ -37,5 +38,14 @@ class ReconstructionToneTests(unittest.TestCase):
   out=np.array(match(Image.fromarray(src),Image.fromarray(repaired),plan))
   self.assertGreater(abs(out[20,19].astype(float)-repaired[20,19]).min(),40)
   np.testing.assert_array_equal(out[body>0],repaired[body>0])
+
+ def test_internal_upper_safety_cutoff_is_not_feathered_as_a_source_edge(self):
+  src,repaired,plan,mask,body=self.fixture();plan['sceneCleanupRevision']=23
+  mask[:110,:35]=255;repaired[:110,:35]=110
+  plan['layers']['clutter']=pack(mask)
+  out=np.array(match(Image.fromarray(src),Image.fromarray(repaired),plan))
+  last=int(np.median(np.nonzero(body)[0]))
+  self.assertGreater(abs(out[last,15].astype(float)-repaired[last,15]).min(),40)
+  np.testing.assert_array_equal(out[110:],repaired[110:])
 
 if __name__=='__main__':unittest.main()
