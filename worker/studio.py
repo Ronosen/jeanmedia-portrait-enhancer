@@ -130,7 +130,9 @@ def support_shapes(rgb, person, protected, model, floor):
     contrast = np.max(np.abs(rgb.astype(float) - model), axis=2) > threshold
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     edges = cv2.dilate(cv2.Canny(gray, 10, 30), np.ones((3, 3), np.uint8))
-    neutral = np.ptp(rgb, axis=2) < 45
+    # White supports often carry a blue studio-light cast. A strict RGB range
+    # split their visible panels into tiny pieces and could erase the seat.
+    neutral = np.ptp(rgb, axis=2) < 70
     contrast &= neutral & (edges == 0)
     contrast[person] = False
     count, labels, stats, _ = cv2.connectedComponentsWithStats(contrast.astype(np.uint8))
@@ -149,6 +151,10 @@ def support_shapes(rgb, person, protected, model, floor):
             cropped=(np.median(rgb[part].mean(axis=1))>100 and
                      np.median(rgb[part].mean(axis=1)-model[part].mean(axis=1))>35)
         broad=area > width*height*.005 and w>width*.08 and h>height*.06
+        narrow_support=(area>width*height*.0015 and w>width*.02 and h>height*.07
+                        and h>w*1.3 and h<w*24
+                        and np.median(rgb[labels==label].mean(axis=1))>145
+                        and (direct_contact&(labels==label)).sum()>max(3,h*.03))
         # A footrest can be much shorter than a seat. Require direct contact
         # with the person and a compact bright surface, not proximity alone.
         footrest=(area>width*height*.0015 and area<width*height*.08
@@ -157,7 +163,7 @@ def support_shapes(rgb, person, protected, model, floor):
                   and (direct_contact&(labels==label)).any()
                   and np.median(rgb[labels==label].mean(axis=1))>145)
         if (below < y < rows[-1] + height * .08 and (y+h < height * .98 or cropped)
-                and (broad or footrest) and area / (w*h) > .55):
+                and (broad or footrest or narrow_support) and area / (w*h) > (.4 if narrow_support else .55)):
             candidates.append(label)
     contact = cv2.dilate(protected.astype(np.uint8), np.ones((45, 45), np.uint8)).astype(bool)
     linked = set(np.unique(labels[contact]))
@@ -598,6 +604,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
         return image,preview,plan
     if fresh_plan and separated is not None and floor_mode=='patch':
         plan['sceneIntentSkill']=1
+        plan['sceneCleanupRevision']=22
         from backdrop_finish import unpack,pack
         from scene_evidence import floor_evidence
         from separation import prepare as prepare_layers
@@ -635,7 +642,9 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
     plan["equipmentPlan"] = equipment
     if separated is not None:
         from separation import prepare
-        if fresh_plan and floor_mode=='patch':plan['sceneIntentSkill']=1
+        if fresh_plan and floor_mode=='patch':
+            plan['sceneIntentSkill']=1
+            plan['sceneCleanupRevision']=22
         alpha=prepare(plan,pixels,separated,probability,objects,raw_alpha,floor_probability)
         from backdrop_finish import pack
         plan['layers']['rawForegroundAlpha']=pack(np.rint(raw_alpha*255).astype(np.uint8))

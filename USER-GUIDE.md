@@ -62,3 +62,6 @@ Batch automatically saves results carrying review flags, as requested for unatte
 
 
 Pipeline revision 21 adds a local semantic prop check before reconstruction. It compares measured object crops with graduation gowns, caps, balloons, diplomas/books, flowers, seats and common studio distractions. Removal requires agreement between tight and wider crops; plausible uncertain props stay protected for review. It cannot reliably infer every photographer's intent, and equipment, reflections or repair seams can remain. New portrait plans also use a stronger bounded teeth/eye-white correction; old saved plans retain their earlier whitening behavior. See SCENE-INTENT.md for details. The hardware self-test now includes the local CLIP vision model and prompt-vector integrity.
+
+
+Pipeline revision 22 repairs cropped light-backdrop equipment independently of floor detection, checks isolated objects before treating equipment as a prop, and prevents saturated floor reflections from becoming protected colour islands. It preserves weaker floor-edge evidence and avoids retaining a wide old-background ring at the subject edge. Dark repaired equipment areas use nearby source backdrop donors to correct colour drift while retaining reconstructed texture. Existing saved plans retain their earlier compositing behavior until Auto Edit is run again.

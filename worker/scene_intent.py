@@ -108,11 +108,20 @@ def assess(rgb,raw,decoration,equipment,person):
    if second['label']=='balloon' and (second['action']=='protect' or agrees) and result['label'] in ('other','balloon') and (coloured or compact_dark):
     result=dict(second,action='protect',contextConfirmed=True)
   mask=part&~guard
+  # Context may contain a real cap/book beside a lighting rig. Do not grant
+  # the entire measured rig protection just because that nearby prop wins.
+  equipment_overlap=float((part&(equipment>0)).sum())/max(1,area)
+  if equipment_overlap>.15 and LABELS[result['label']][0]=='protect' and (result['label']!='balloon' or area/(bw*bh)<.5):
+   isolated=rgb[y:y+bh,x:x+bw].copy()
+   isolated[~part[y:y+bh,x:x+bw]]=(123,117,104)
+   object_view=classify(isolated)
+   if object_view['label']!=result['label']:
+    result=dict(result,action='uncertain',objectViewDisagreed=True,objectViewLabel=object_view['label'])
   if result['action']=='protect':
    # Preserve the measured material, not the padded classification rectangle.
    keep[mask]=1
   elif result['action']=='remove':remove|=mask
-  elif LABELS[result['label']][0]=='protect' and result['similarity']>=.26 and result['margin']>=.008:
+  elif LABELS[result['label']][0]=='protect' and result['similarity']>=.26 and result['margin']>=.008 and not result.get('objectViewDisagreed'):
    # Uncertain but plausible props must not be deleted by an older generic
    # equipment/outlier rule. Preserve their measured source material pending
    # review; the decision remains uncertain, not a claimed identification.

@@ -137,16 +137,45 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  # source matte unless independent equipment/panel evidence identifies it.
  # This covers hanging gowns, balloons and other unconnected photo props.
  equipment=np.zeros(alpha.shape,np.uint8)
+ crop_wall=np.zeros((h,w),bool);independent=np.zeros((h,w),bool)
+ if plan.get('sceneIntentSkill')==1:
+  from cropped_backdrop import assess as assess_crop,frame_intrusions
+  crop_wall,independent,crop_evidence=assess_crop(rgb,protected,model)
+  plan['croppedBackdropEvidence']=crop_evidence
+  independent |= frame_intrusions(rgb,protected,model)
+  equipment[independent]=255
  if plan.get('equipmentPlan'):
   from equipment import polygon_mask
   for item in plan['equipmentPlan']['repairs']:equipment |= polygon_mask(alpha.shape,item['polygon'])
  panels=frame_panels(rgb,probability,model,objects,plan['floor'])
  overhead=corner_equipment(rgb,protected)
+ # Hough edges describe the dark panel interior; its bright rim can sit a
+ # little outside that polygon. Include the source rim before reconstruction.
+ rim=max(3,round(min(h,w)*.03))
+ overhead=(cv2.dilate(overhead.astype(np.uint8),cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2*rim+1,2*rim+1)))>0)&~protected
  from scene_objects import intentional_props
  prop_alpha=intentional_props(raw_alpha,protected,objects,plan['floor'],(equipment>0)|panels|overhead)
  from scene_objects import decorative_props
  decoration=decorative_props(rgb,model,protected,(equipment>0)|panels|overhead,plan['floor'])
- prop_alpha[decoration]=1
+ # Saturated floor reflections are not evidence of a solid decoration. Keep
+ # measured floor material out of this heuristic; semantic evidence may still
+ # protect an actual balloon/prop resting on the floor below.
+ heuristic_decoration=decoration.copy()
+ if plan.get('sceneIntentSkill')==1 and plan.get('floorAnalysis',{}).get('detected'):
+  heuristic_decoration &= yy<round(plan['floor']*h)
+ if plan.get('sceneIntentSkill')==1:
+  # Tiny unanchored colour remnants at a frame edge are not a complete photo
+  # prop. A semantic prop decision can restore them; colour alone cannot.
+  n,parts,stats,_=cv2.connectedComponentsWithStats(heuristic_decoration.astype(np.uint8))
+  near=cv2.dilate(protected.astype(np.uint8),np.ones((max(5,round(min(h,w)*.08))|1,)*2,np.uint8))>0
+  for i in range(1,n):
+   x,y,bw,bh,area=stats[i]
+   if not (x==0 or x+bw==w) or area>=h*w*.002:continue
+   part=parts==i
+   if (part&near).any():continue
+   if raw_alpha is not None and (raw_alpha[part]>.25).mean()>.2:continue
+   heuristic_decoration[part]=False
+ prop_alpha[heuristic_decoration]=1
  semantic_remove=np.zeros((h,w),bool)
  if plan.get('sceneIntentSkill')==1:
   from scene_intent import assess
@@ -169,6 +198,8 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  if 'floorAnalysis' in plan:
   witness=unpack(plan['layers']['floorWitness'],[h,w])>0 if plan['layers'].get('floorWitness') else protected
   wall,contour=wall_surface(rgb,witness,plan['floor'],plan['floorAnalysis'])
+  if not plan['floorAnalysis'].get('detected') and crop_wall.any():
+   wall=crop_wall;contour=dict(plan['croppedBackdropEvidence'])
  else:
   wall=np.broadcast_to(yy<round(plan['floor']*h),(h,w)).copy();contour={'method':'legacy-row'}
  if plan.get('floorAnalysis',{}).get('detected') and plan.get('floorRepairs'):
@@ -183,6 +214,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
   patches['count']=int(cv2.connectedComponents((decode_mask(patches['defects'],(h,w))>0).astype(np.uint8))[0]-1)+int((decode_mask(patches['extension'],(h,w))>0).any())
  panels=frame_panels(rgb,probability,model,objects,plan['floor'])
  equipment=np.zeros(alpha.shape,np.uint8)
+ equipment[independent]=255
  if plan.get('equipmentPlan'):
   from equipment import polygon_mask
   for item in plan['equipmentPlan']['repairs']:equipment |= polygon_mask(alpha.shape,item['polygon'])
@@ -269,7 +301,10 @@ def render(source,selected,plan):
  background=repair(source,holes,np.zeros(shape,bool),plate)
  if plan.get('separation',{}).get('backdropMethod') in ('local-evidence-v3','local-evidence-v4','local-evidence-v5'):
   wall=unpack(plan['layers']['wallSurface'],shape)>0
-  weight=np.clip(cv2.distanceTransform(wall.astype(np.uint8),cv2.DIST_L2,3)/max(4,shape[0]*.02),0,1)
+  # Fade at a surface boundary, not at every foreground hole: retaining old
+  # background around the matte creates a visible dark/bright subject halo.
+  surface=(wall|foreground) if plan.get('sceneCleanupRevision',0)>=22 else wall
+  weight=np.clip(cv2.distanceTransform(surface.astype(np.uint8),cv2.DIST_L2,3)/max(4,shape[0]*.02),0,1)*wall
   clutter=unpack(plan['layers']['clutter'],shape)>0
   weight[foreground|clutter]=1
   if plan.get('floorRepairs'):weight[decode_mask(plan['floorRepairs']['extension'],tuple(shape))>0]=1
@@ -308,6 +343,8 @@ def render(source,selected,plan):
    patches['engine']='clone-v1'
    plan['floorRepairs']['engine']='clone-v1'
   background=apply_floor_patches(background,plan['floor'],patches,protected)
+ from reconstruction_tone import match as match_reconstruction
+ background=match_reconstruction(source,background,plan)
  background=finish(background,plan)
  progress('Combining protected subjects and background',90)
  result=composite(source,background,matte)

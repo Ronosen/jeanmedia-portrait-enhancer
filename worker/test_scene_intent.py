@@ -5,6 +5,13 @@ import cv2
 from scene_intent import assess,proposals
 
 class SceneIntentTests(unittest.TestCase):
+ def test_nearby_cap_cannot_protect_an_equipment_component(self):
+  args=list(self.fixture());args[3]=args[1]>.5
+  cap={'label':'graduation cap','action':'protect','similarity':.29,'margin':.06}
+  wallpaper={'label':'wallpaper','action':'uncertain','similarity':.27,'margin':.01}
+  with patch('scene_intent.classify',side_effect=[cap,wallpaper]):keep,remove,report=assess(*args)
+  self.assertFalse(keep.any());self.assertFalse(remove.any());self.assertTrue(report['objects'][0]['objectViewDisagreed'])
+
  def fixture(self):
   rgb=np.full((200,240,3),25,np.uint8);raw=np.zeros((200,240),np.float32);raw[20:100,15:65]=1
   rgb[20:100,15:65]=(200,155,30);person=np.zeros(raw.shape,bool);person[60:190,140:210]=1

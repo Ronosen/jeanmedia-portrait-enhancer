@@ -56,7 +56,8 @@ def finish(image,plan):
         else:delta,strength,variation=local_finish(gray,safe)
         if plan['separation']['backdropMethod'] in ('local-evidence-v3','local-evidence-v5'):
             wall=unpack(plan['layers']['wallSurface'],shape)>0
-            distance=cv2.distanceTransform(wall.astype(np.uint8),cv2.DIST_L2,3)
+            surface=(wall|protected) if plan.get('sceneCleanupRevision',0)>=22 else wall
+            distance=cv2.distanceTransform(surface.astype(np.uint8),cv2.DIST_L2,3)
             delta*=np.clip(distance/max(4,h*.02),0,1)
         mask=(delta!=0).astype(np.uint8)*255
         cached={'version':1,'edgeFinish':1,'method':plan['separation']['backdropMethod'],'scale':2,'shape':shape,

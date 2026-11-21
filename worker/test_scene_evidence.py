@@ -7,6 +7,13 @@ from backdrop_finish import finish, pack, unpack
 
 
 class SceneEvidenceTests(unittest.TestCase):
+    def test_weaker_material_witness_protects_surface_without_moving_floor(self):
+        rgb=np.full((300,240,3),25,np.uint8)
+        for a,b in [(0,30),(90,120),(210,240)]:rgb[185:210,a:b]=(38,40,48)
+        rgb[210:]=(65,70,85)
+        floor,analysis=floor_evidence(rgb,np.zeros((300,240),bool),True)
+        self.assertTrue(analysis['detected']);self.assertAlmostEqual(floor,210/300,delta=.04)
+        self.assertLess(analysis['surfaceSafetyRow'],analysis['row'])
     def test_deep_black_folds_are_smoothed_without_touching_foreground(self):
         from scene_evidence import local_finish
         h,w=240,180;yy,xx=np.mgrid[:h,:w]

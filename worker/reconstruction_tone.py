@@ -1,0 +1,62 @@
+"""Match a reconstructed equipment hole to observed dark-backdrop donors.
+
+Only correct measured colour drift; retain reconstructed texture and leave the
+floor, foreground and healthy source backdrop outside the repair untouched.
+"""
+import cv2
+import numpy as np
+from PIL import Image
+from backdrop_finish import unpack
+
+def match(source,background,plan):
+ if plan.get('sceneCleanupRevision',0)<22 or 'coefficients' not in plan:return background
+ from studio import background_basis
+ h,w=plan['layers']['shape'];yy,xx=np.mgrid[:h,:w]
+ ref=np.clip(background_basis(xx/max(1,w-1),yy/max(1,h-1))@np.asarray(plan['coefficients']),plan['low'],plan['high'])
+ if np.median(ref.mean(axis=2))>=80 or np.median(np.ptp(ref,axis=2))>=35:return background
+ protected=unpack(plan['layers']['protected'],[h,w])>0
+ anchors=unpack(plan['layers'].get('anchoredForegroundAlpha',plan['layers']['protected']),[h,w])>3
+ rows=np.nonzero(anchors)[0]
+ if not len(rows):return background
+ # Source-derived upper-body extent is a safety limit, not a floor horizon.
+ upper=yy<float(np.median(rows))
+ clutter=unpack(plan['layers']['clutter'],[h,w])>0
+ selected=clutter&upper&~protected
+ src=np.asarray(source.resize((w,h),Image.Resampling.LANCZOS)).astype(float)
+ predicted=np.asarray(background.resize((w,h),Image.Resampling.LANCZOS)).astype(float)
+ donor=~protected&~clutter&upper&(np.max(np.abs(src-ref),axis=2)<30)
+ correction=np.zeros((h,w,3),np.float32);count=0
+ n,labels,stats,_=cv2.connectedComponentsWithStats(selected.astype(np.uint8))
+ for i in range(1,n):
+  if stats[i,cv2.CC_STAT_AREA]<h*w*.0005:continue
+  part=labels==i;radius=max(9,round(min(h,w)*.08))|1
+  ring=(cv2.dilate(part.astype(np.uint8),np.ones((radius,radius),np.uint8))>0)&donor
+  if ring.sum()<60:continue
+  # Fit illumination from actual nearby donors, not an extrapolation of a
+  # global model that may have been biased by the removed bright frame.
+  plane=np.stack([np.ones((h,w)),xx/max(1,w-1),yy/max(1,h-1)],axis=2)
+  coefficients=np.linalg.lstsq(plane[ring],src[ring],rcond=None)[0]
+  low=np.percentile(src[ring],5,axis=0)-3;high=np.percentile(src[ring],95,axis=0)+3
+  local=np.clip(plane@coefficients,low,high)
+  source_residual=(src-local)[ring];repair_residual=(predicted-local)[part]
+  desired=np.median(source_residual,axis=0);actual=np.median(repair_residual,axis=0)
+  spread=np.percentile(source_residual,90,axis=0)-np.percentile(source_residual,10,axis=0)
+  drift=np.percentile(np.max(np.abs(repair_residual-desired),axis=1),97)
+  if drift<max(12,float(np.max(spread))*2):continue
+  repaired_spread=np.percentile(repair_residual,97,axis=0)-np.percentile(repair_residual,3,axis=0)
+  gain=np.clip(spread/np.maximum(1,repaired_spread),.05,1)
+  target=local[part]+desired+(repair_residual-actual)*gain
+  correction[part]=np.clip(target-predicted[part],-100,100)
+  count+=1
+ plan['reconstructionTone']={'version':1,'components':count,'method':'observed-donor-residual-v1'}
+ if not count:return background
+ # Add a smoothly enlarged correction to the native neural result; this is
+ # colour transfer of the reconstructed texture, never a solid RGB overlay.
+ result=Image.new('RGB',background.size)
+ channels=[Image.fromarray(correction[:,:,c],mode='F').resize(background.size,Image.Resampling.BILINEAR) for c in range(3)]
+ for top in range(0,background.height,256):
+  box=(0,top,background.width,min(background.height,top+256))
+  pixels=np.asarray(background.crop(box)).astype(float)
+  delta=np.stack([np.asarray(c.crop(box)) for c in channels],axis=2)
+  result.paste(Image.fromarray(np.rint(np.clip(pixels+delta,0,255)).astype(np.uint8)),box[:2])
+ return result

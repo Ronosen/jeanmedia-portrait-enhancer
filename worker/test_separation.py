@@ -6,6 +6,26 @@ from separation import anchored_alpha,composite,prepare,render,replay,trim_suppo
 from backdrop_finish import pack,unpack
 
 class SeparationTests(unittest.TestCase):
+ def test_background_repair_reaches_matte_without_a_source_background_halo(self):
+  source=Image.new('RGB',(80,80),(100,100,100));a=np.zeros((80,80),np.uint8);a[15:55,30:50]=255
+  wall=np.ones_like(a)*255;wall[a>0]=0;wall[65:]=0
+  plan={'sceneCleanupRevision':22,'layers':{'shape':[80,80],'foregroundAlpha':pack(a),'wallSurface':pack(wall),'clutter':pack(np.zeros_like(a))},'separation':{'backdropMethod':'local-evidence-v5'}}
+  with patch('neural.repair',return_value=Image.new('RGB',(80,80),(50,50,50))),patch('backdrop_finish.finish',side_effect=lambda image,plan:image):
+   out=np.array(render(source,np.zeros_like(a),plan))
+  self.assertEqual(out[35,29].tolist(),[50,50,50]);self.assertEqual(out[35,30].tolist(),[100,100,100]);self.assertEqual(out[75,10].tolist(),[100,100,100])
+
+ def test_saturated_floor_is_not_an_opaque_decoration_without_semantic_prop_evidence(self):
+  shape=(220,180);rgb=np.full((*shape,3),30,np.uint8);body=np.zeros(shape,np.float32);body[40:195,80:130]=1
+  decoration=np.zeros(shape,bool);decoration[200:215,10:35]=True;rgb[decoration]=(60,90,210)
+  for confirmed in (False,True):
+   plan={'sceneIntentSkill':1,'coefficients':[[30]*3]+[[0]*3]*5,'low':[30]*3,'high':[30]*3,'floor':.7,'floorAnalysis':{'detected':True},'layers':{'shape':list(shape)}}
+   keep=decoration.astype(np.float32) if confirmed else np.zeros(shape,np.float32)
+   with patch('scene_objects.decorative_props',return_value=decoration.copy()),patch('scene_intent.assess',return_value=(keep,np.zeros(shape,bool),{'version':1,'objects':[],'uncertain':0})):
+    prepare(plan,rgb,body,body,[],body,body)
+   alpha=unpack(plan['layers']['foregroundAlpha'],shape)
+   self.assertEqual(bool(alpha[decoration].any()),confirmed)
+   self.assertTrue((alpha[body>.5]==255).all())
+
  def test_semantic_clutter_below_uncertain_wall_enters_visible_repair_mask(self):
   rgb=np.full((220,180,3),25,np.uint8);alpha=np.zeros((220,180),np.float32);alpha[40:200,80:130]=1
   raw=alpha.copy();raw[180:210,10:40]=1;rgb[180:210,10:40]=(30,40,200)

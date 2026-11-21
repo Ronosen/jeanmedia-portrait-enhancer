@@ -1,6 +1,36 @@
 # Local prop and distraction assessment
 
-New automatic edits use pipeline revision 21. The scene-intent skill runs inside
+Narrow support panels can be confirmed by bright source material and direct
+subject contact even when a gown occludes their rectangular shape. Blue lighting
+casts no longer disqualify an otherwise supported white seat. Tiny unanchored
+side-frame colour fragments need foreground or semantic prop evidence rather
+than receiving opaque protection from colour alone.
+Dark reconstructed gear regions are checked against nearby observed backdrop
+donors. Local illumination and residual-contrast transfer correct colour drift
+while retaining reconstructed texture; healthy backdrop, floor and foreground
+outside those repairs are not part of that transfer.
+
+Pipeline revision 22 adds independent backdrop evidence for cropped portraits
+on light studio sets. A subject mask reaching the frame bottom and a broad
+observed backdrop material enable local wall smoothing without guessing a floor
+horizon. Frame-connected dark polygonal equipment and thin coloured wall strips
+require measured source silhouettes, a matching backdrop ring and no overlap
+with the subject/support guard. Semantic prop protection still wins over these
+equipment proposals. Full-body scenes and dark sets retain the conservative
+floor-contour behavior. This is evidence-based detection, not filename rules or
+a fixed repair position, and does not guarantee removal of every kind of gear.
+Colour-only decoration protection also stops at a measured floor boundary, so
+saturated floor reflections cannot become hard source-colour islands inside a
+repair. Semantic evidence can still preserve a real prop placed on the floor.
+Exposed thin studio borders connected to the top frame can be removed without
+a floor estimate. When a proposed prop overlaps independent equipment evidence,
+an isolated-object view prevents a nearby cap/book in the context crop from
+protecting the entire rig. Weaker floor-material witnesses limit wall darkening
+without redefining the reconstruction horizon. Background feathering follows
+surface boundaries rather than leaving a wide old-background ring around people.
+
+The prop and whitening features began in revision 21; new automatic edits now
+use revision 22. The scene-intent skill runs inside
 the application, before background reconstruction. It needs no API key or photo
 upload and adds no mask controls to the interface.
 

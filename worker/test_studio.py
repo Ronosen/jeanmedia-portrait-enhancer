@@ -8,6 +8,23 @@ from studio import prepare_backdrop, render_backdrop
 
 
 class StudioBackdropTests(unittest.TestCase):
+    def test_gown_occlusion_does_not_disqualify_a_connected_seat_panel(self):
+        from studio import support_shapes
+        rgb=np.full((300,240,3),25,np.uint8);person=np.zeros((300,240),bool)
+        rgb[155:275,95:125]=(161,181,207);person[50:285,125:165]=True
+        for y in range(155,275):person[y,95+(y-155)//4:165]=True
+        rgb[person]=(55,50,45)
+        _,found,confirmed=support_shapes(rgb,person,person.copy(),np.full(rgb.shape,25,float),.8)
+        self.assertTrue(found);self.assertTrue(confirmed[250,102])
+
+    def test_narrow_bright_seat_panel_touching_gown_is_preserved(self):
+        from studio import support_shapes
+        rgb=np.full((300,240,3),25,np.uint8);person=np.zeros((300,240),bool)
+        person[50:285,112:160]=True;rgb[person]=(60,55,50);rgb[160:275,100:112]=(161,181,207)
+        rgb[:,:12]=220
+        protected,found,confirmed=support_shapes(rgb,person,person.copy(),np.full(rgb.shape,25,float),.8)
+        self.assertTrue(found);self.assertTrue(confirmed[220,105]);self.assertFalse(confirmed[:,5].any())
+
     def test_short_footrest_contact_is_preserved_but_detached_small_box_is_not(self):
         from studio import support_shapes
         rgb=np.full((400,300,3),30,np.uint8)
@@ -102,7 +119,7 @@ class StudioBackdropTests(unittest.TestCase):
                 full,after,plan,status=auto_edit(image,image,True)
             self.assertEqual(status,'Needs review')
             self.assertEqual(plan['adaptiveRevision'],3)
-            self.assertEqual(plan['processingRevision'],21)
+            self.assertEqual(plan['processingRevision'],22)
             self.assertEqual(image.tobytes(),after.tobytes())
             self.assertEqual(change_mask(plan).getbbox(),None)
             _,replay,_=clean_studio(image,image,plan,export=True)

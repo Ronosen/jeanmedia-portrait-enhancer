@@ -78,6 +78,13 @@ def floor_evidence(rgb, protected, require_coherence=False):
         return 1.0, result
     result.update(detected=True, confidence=float(agreement[best]), row=row,
                   contrast=float(np.median(magnitude[:, best])))
+    # Weaker, separated material witnesses can precede the accepted floor
+    # join. They are insufficient to reconstruct a horizon, but sufficient
+    # reason not to darken these uncertain source surfaces as wall cloth.
+    weak=(agreement>=.35)&(votes.sum(axis=0)>=2)&(span>w*.35)&(score>=4)
+    weak &= (rows<row)&(rows>=row-12*radius)
+    earlier=np.flatnonzero(weak)
+    if len(earlier):result['surfaceSafetyRow']=int(rows[earlier[0]])
     return row / h, result
 
 
@@ -148,7 +155,10 @@ def wall_surface(rgb, protected, floor, analysis):
         wall=np.arange(h)[:,None] < (curve[None,:]-max(3,radius*2))
         ground=np.rint(curve+max(3,radius*2)).astype(int).tolist()
     else:ground=[]
-    return wall, {'method':'visible-contour-v1','detected':bool(accepted),'segments':accepted,'groundRows':ground}
+    if analysis.get('surfaceSafetyRow') is not None:
+        wall[int(analysis['surfaceSafetyRow']):]=False
+    return wall, {'method':'visible-contour-v1','detected':bool(accepted),'segments':accepted,'groundRows':ground,
+                  'surfaceSafetyRow':analysis.get('surfaceSafetyRow')}
 
 
 def texture_finish(gray,safe):
