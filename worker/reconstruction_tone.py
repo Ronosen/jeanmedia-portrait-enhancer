@@ -21,6 +21,7 @@ def match(source,background,plan):
  # Source-derived upper-body extent is a safety limit, not a floor horizon.
  upper=yy<float(np.median(rows))
  clutter=unpack(plan['layers']['clutter'],[h,w])>0
+ ownership_surface=unpack(plan['layers']['wallSurface'],[h,w])>0 if plan['layers'].get('wallSurface') else np.ones((h,w),bool)
  selected=clutter&upper&~protected
  src=np.asarray(source.resize((w,h),Image.Resampling.LANCZOS)).astype(float)
  predicted=np.asarray(background.resize((w,h),Image.Resampling.LANCZOS)).astype(float)
@@ -34,7 +35,7 @@ def match(source,background,plan):
   if ring.sum()<60:continue
   # This specialist also owns already-correct dark repairs. A later generic
   # harmonizer must not reinterpret a smooth rail transition as colour drift.
-  if plan.get('sceneCleanupRevision',0)>=25:owned|=part
+  if plan.get('sceneCleanupRevision',0)>=25:owned|=part&ownership_surface
   # Fit illumination from actual nearby donors, not an extrapolation of a
   # global model that may have been biased by the removed bright frame.
   plane=np.stack([np.ones((h,w)),xx/max(1,w-1),yy/max(1,h-1)],axis=2)
@@ -74,6 +75,13 @@ def match(source,background,plan):
   count+=1
  plan['reconstructionTone']={'version':1,'components':count,'method':'observed-donor-residual-v1'}
  if plan.get('sceneCleanupRevision',0)>=25:
+  # The specialist's upper-body safety cutoff is not a real wall edge. Keep
+  # ownership continuous across an entire connected wall repair so the next
+  # stage cannot create a new band at that internal cutoff. Actual floor
+  # regions remain available to their own repair path.
+  _,whole=cv2.connectedComponents((clutter&ownership_surface&~protected).astype(np.uint8))
+  linked=np.unique(whole[owned]);linked=linked[linked>0]
+  if len(linked):owned|=np.isin(whole,linked)
   plan['reconstructionTone'].update(version=2,ownedMask=pack(owned.astype(np.uint8)*255),owner='dark-backdrop-specialist')
  if not count:return background
  # Add a smoothly enlarged correction to the native neural result; this is

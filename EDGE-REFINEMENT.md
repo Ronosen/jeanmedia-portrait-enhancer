@@ -2,6 +2,10 @@
 
 ## r25 correction: one owner per repaired region
 
+Ownership follows the entire connected wall repair, so an internal body-height
+safety cutoff cannot become a new blending boundary. It stops at the measured
+wall surface; real floor repairs keep their separate eligibility.
+
 The r24 generic harmonizer ran after the specialized dark-backdrop colour pass.
 It could overwrite the specialist's smooth rail transition, and the generic
 retry could redraw it. This reintroduced a route to the previously fixed seam.

@@ -95,5 +95,20 @@ class RepairQualityTests(unittest.TestCase):
   self.assertIs(match(frame,frame,plan),frame)
   self.assertEqual(plan['reconstructionTone']['components'],0)
   np.testing.assert_array_equal(unpack(plan['reconstructionTone']['ownedMask'],m.shape)>0,m)
+ def test_specialist_ownership_does_not_end_at_an_artificial_body_cutoff(self):
+  from reconstruction_tone import match
+  src,m,p,_=self.fixture();m[20:95,20:50]=True
+  plan=self.plan(m,p);plan.update(sceneCleanupRevision=25,coefficients=[[45]*3]+[[0]*3]*5,low=[45]*3,high=[45]*3)
+  plan['layers']['protected']=pack(p.astype(np.uint8)*255)
+  frame=ArrayFrame(src);match(frame,frame,plan)
+  np.testing.assert_array_equal(unpack(plan['reconstructionTone']['ownedMask'],m.shape)>0,m)
+ def test_specialist_ownership_does_not_claim_the_floor(self):
+  from reconstruction_tone import match
+  src,m,p,s=self.fixture();m[20:95,20:50]=True;s[70:]=False
+  plan=self.plan(m,p);plan.update(sceneCleanupRevision=25,coefficients=[[45]*3]+[[0]*3]*5,low=[45]*3,high=[45]*3)
+  plan['layers']['protected']=pack(p.astype(np.uint8)*255);plan['layers']['wallSurface']=pack(s.astype(np.uint8)*255)
+  frame=ArrayFrame(src);match(frame,frame,plan)
+  owned=unpack(plan['reconstructionTone']['ownedMask'],m.shape)>0
+  np.testing.assert_array_equal(owned,m&s)
 
 if __name__=='__main__':unittest.main()
