@@ -1,0 +1,54 @@
+{
+  "purpose": "r24 local CPU edge refinement",
+  "platform": "Windows x64 / CPython 3.12",
+  "source": "https://github.com/pymatting/pymatting",
+  "packages": [
+    {
+      "name": "PyMatting",
+      "version": "1.1.16",
+      "license": "MIT",
+      "licenseFiles": [
+        "pymatting-1.1.16.dist-info/licenses/LICENSE.md"
+      ],
+      "wheelUrl": "https://files.pythonhosted.org/packages/47/8e/2c00f3615fc906c01f5168d2caedf61811db6259b8d0c9a1b14d7c9af61a/pymatting-1.1.16-py3-none-any.whl",
+      "wheelSha256": "6ad3f787f90d7720b60e9734c33588cb30f98a66abf7bd772fa499d3a32b466a"
+    },
+    {
+      "name": "numba",
+      "version": "0.68.1",
+      "license": "BSD-2-Clause",
+      "licenseFiles": [
+        "numba-0.68.1.dist-info/licenses/LICENSE",
+        "numba-0.68.1.dist-info/licenses/LICENSES.third-party"
+      ],
+      "wheelUrl": "https://files.pythonhosted.org/packages/e9/bb/c9b0129a57e82b97befeca60a53289359653eef33dd3bffd840898fa33aa/numba-0.68.1-cp312-cp312-win_amd64.whl",
+      "wheelSha256": "6d115039768cc2eb3cc99b32355ca507e1bbc653eca5492c83ab6399f218df27"
+    },
+    {
+      "name": "llvmlite",
+      "version": "0.50.0",
+      "license": "BSD-2-Clause AND Apache-2.0 WITH LLVM-exception",
+      "licenseFiles": [
+        "llvmlite-0.50.0.dist-info/licenses/LICENSE",
+        "llvmlite-0.50.0.dist-info/licenses/LICENSE.thirdparty"
+      ],
+      "wheelUrl": "https://files.pythonhosted.org/packages/64/70/f395702c20b514363061055b5bdebe3513e544139e6d412a5c86e8ea0b30/llvmlite-0.50.0-cp312-cp312-win_amd64.whl",
+      "wheelSha256": "c20595cc3a76e3c85140fdafbf9246c732ddf8e0e646ba2f4e4881f87567300d"
+    },
+    {
+      "name": "scipy",
+      "version": "1.18.1",
+      "license": "BSD-3-Clause plus bundled third-party notices",
+      "licenseFiles": [
+        "scipy-1.18.1.dist-info/LICENSE.txt",
+        "scipy/_lib/_uarray/LICENSE",
+        "scipy/fft/_duccfft/LICENSE.md",
+        "scipy/integrate/LICENSE_DOP",
+        "scipy/spatial/qhull_src/COPYING_QHULL.txt"
+      ],
+      "wheelUrl": "https://files.pythonhosted.org/packages/39/e7/979fd14e75008623df31ba70d6bb144700f68feadcea042021c06a05bf82/scipy-1.18.1-cp312-cp312-win_amd64.whl",
+      "wheelSha256": "5e4d44984abc0020154ea81b247adeddcc3ac5527b975ff798bd1ba0adc513c2"
+    }
+  ],
+  "photoValidation": "Not run, at user request. Manual acceptance pending."
+}

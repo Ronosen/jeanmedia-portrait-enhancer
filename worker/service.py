@@ -101,6 +101,14 @@ def diagnostics():
             tests.append({"model": name, "ok": False})
     hardware["selfTest"] = tests
     try:
+        from edge_refinement import dependency_status
+        hardware['edgeRefinement']=dependency_status()
+        tests.append({'model':'pymatting-runtime','ok':hardware['edgeRefinement']['available'],
+                      'check':'pinned versions and library import; no photo processing'})
+    except Exception:
+        hardware['edgeRefinement']={'available':False}
+        tests.append({'model':'pymatting-runtime','ok':False})
+    try:
         from scene_intent import resources
         intent_model,vectors=resources()
         intent_model.run(None,{intent_model.get_inputs()[0].name:np.zeros((1,3,224,224),np.float32)})

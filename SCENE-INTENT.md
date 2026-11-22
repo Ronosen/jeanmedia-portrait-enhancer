@@ -30,7 +30,7 @@ without redefining the reconstruction horizon. Background feathering follows
 surface boundaries rather than leaving a wide old-background ring around people.
 
 The prop and whitening features began in revision 21; new automatic edits now
-use revision 22. The scene-intent skill runs inside
+use revision 24. The scene-intent skill runs inside
 the application, before background reconstruction. It needs no API key or photo
 upload and adds no mask controls to the interface.
 
@@ -61,6 +61,15 @@ equipment or missing masks still need review. It is not a guarantee that every
 object will be classified correctly or every output will be client-ready.
 
 ## Repair boundaries
+
+Revision 24 separates object identity from its role in the studio scene. A
+measured sloped rail and material evidence define exposed room space; detached
+balloons/flowers entirely above that boundary and away from the subject can
+be removed as room decorations. Held, near-subject and boundary-crossing props
+remain protected. With insufficient boundary evidence the app does not invent
+a fixed upper crop or certify the object as unwanted. See
+[EDGE-REFINEMENT.md](EDGE-REFINEMENT.md) for internal PyMatting, colour matching,
+bounded inspection/retry behavior and the manual photographic acceptance limit.
 
 New cleanup revision 23 includes the contact shadow of measured top-edge studio
 hardware in its reconstruction mask. The margin follows detected equipment,

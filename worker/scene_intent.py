@@ -80,7 +80,7 @@ def proposals(rgb,raw,decoration,equipment,person):
    seen|=part;candidates.append((area,(int(x),int(y),int(bw),int(bh)),part))
  return sorted(candidates,key=lambda c:-c[0])[:16]
 
-def assess(rgb,raw,decoration,equipment,person):
+def assess(rgb,raw,decoration,equipment,person,context=None):
  keep=np.zeros(person.shape,np.float32);remove=np.zeros(person.shape,bool);decisions=[]
  guard=cv2.dilate(person.astype(np.uint8),np.ones((5,5),np.uint8))>0
  for area,(x,y,bw,bh),part in proposals(rgb,raw,decoration,equipment,guard):
@@ -90,8 +90,8 @@ def assess(rgb,raw,decoration,equipment,person):
    # Frame-clipped balloons can look like an unidentifiable colour swatch
    # when tightly cropped. A second view adds contour context. It may only
    # promote a distinct coloured balloon, never wallpaper or arbitrary gear.
-   context=max(12,round(max(bw,bh)*.8))
-   wide=[max(0,x-context),max(0,y-context),min(rgb.shape[1],x+bw+context),min(rgb.shape[0],y+bh+context)]
+   context_margin=max(12,round(max(bw,bh)*.8))
+   wide=[max(0,x-context_margin),max(0,y-context_margin),min(rgb.shape[1],x+bw+context_margin),min(rgb.shape[0],y+bh+context_margin)]
    second=classify(rgb[wide[1]:wide[3],wide[0]:wide[2]])
    if result['action']=='remove':
     # Removal needs agreement in two views, not a single marginal crop.
@@ -108,6 +108,15 @@ def assess(rgb,raw,decoration,equipment,person):
    if second['label']=='balloon' and (second['action']=='protect' or agrees) and result['label'] in ('other','balloon') and (coloured or compact_dark):
     result=dict(second,action='protect',contextConfirmed=True)
   mask=part&~guard
+  from scene_context import object_relationship
+  relationship=object_relationship(part,person,context or {})
+  result=dict(result,relationship=relationship)
+  # Recognition says what an object is; scene context says whether it belongs
+  # to this portrait. Only confirmed measured room decorations may override
+  # the old blanket balloon/flower protection. Straddling/held props stay safe.
+  if (result['label'] in ('balloon','flowers') and relationship['roomDecoration']
+      and result['similarity']>=.26 and not result.get('contextDisagreed')):
+   result=dict(result,action='remove',reason='detached-decoration-above-measured-backdrop')
   # Context may contain a real cap/book beside a lighting rig. Do not grant
   # the entire measured rig protection just because that nearby prop wins.
   equipment_overlap=float((part&(equipment>0)).sum())/max(1,area)
@@ -131,5 +140,5 @@ def assess(rgb,raw,decoration,equipment,person):
   # protection is left to the caller, rather than promoting wall colour.
   decisions.append(dict(result,box=box,pixels=int(mask.sum())))
  remove &= (keep==0)&~guard
- return keep,remove,{'version':1,'model':'CLIP-ViT-B32-int8','objects':decisions,
+ return keep,remove,{'version':2 if context is not None else 1,'model':'CLIP-ViT-B32-int8','objects':decisions,
   'uncertain':sum(d['action']=='uncertain' for d in decisions)}

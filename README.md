@@ -1,5 +1,12 @@
 # JeanMedia Portrait Enhancer
 
+Current development build r24 adds measured studio-room context, internal
+PyMatting edge refinement, bounded repair-colour matching and a one-retry repair
+inspection stage. See [EDGE-REFINEMENT.md](EDGE-REFINEMENT.md). No photographs
+were used for this build's acceptance checks; visual testing is reserved for
+the user. Existing edits need Auto Edit rerun. These checks do not certify
+client-ready output.
+
 Project requirements and acceptance status: [CHECKLIST.md](CHECKLIST.md).
 
 Development build for Windows. The React/Tauri desktop shell calls a local Python worker. OpenCV applies bounded channel and exposure curves. Pillow handles EXIF orientation, color conversion, previews and JPEG/PNG/TIFF export. Export always creates a separate file and refuses to overwrite an existing path.

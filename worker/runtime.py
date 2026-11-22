@@ -47,10 +47,16 @@ def sha256(path):
 
 
 def manifest():
+    from importlib.metadata import version,PackageNotFoundError
     import cv2
     import numpy
     import onnxruntime
     import PIL
+    edge={}
+    for package in ('PyMatting','numba','llvmlite','scipy'):
+        try:edge[package]=version(package)
+        except PackageNotFoundError:edge[package]=None
     return {"worker": 3, "python": sys.version.split()[0], "pillow": PIL.__version__,
+            "edgeRefinement":edge,
             "opencv": cv2.__version__, "numpy": numpy.__version__, "onnxruntime": onnxruntime.__version__,
             "models": {p.name: sha256(p) for p in sorted(MODELS.glob("*.onnx"))}}

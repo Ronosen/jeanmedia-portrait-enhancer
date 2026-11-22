@@ -56,6 +56,44 @@
       "licenseFiles": [
         "LICENSE"
       ]
+    },
+    {
+      "name": "PyMatting",
+      "version": "1.1.16",
+      "license": "MIT",
+      "licenseFiles": [
+        "pymatting-1.1.16.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "name": "numba",
+      "version": "0.68.1",
+      "license": "BSD-2-Clause",
+      "licenseFiles": [
+        "numba-0.68.1.dist-info/licenses/LICENSE",
+        "numba-0.68.1.dist-info/licenses/LICENSES.third-party"
+      ]
+    },
+    {
+      "name": "llvmlite",
+      "version": "0.50.0",
+      "license": "BSD-2-Clause AND Apache-2.0 WITH LLVM-exception",
+      "licenseFiles": [
+        "llvmlite-0.50.0.dist-info/licenses/LICENSE",
+        "llvmlite-0.50.0.dist-info/licenses/LICENSE.thirdparty"
+      ]
+    },
+    {
+      "name": "scipy",
+      "version": "1.18.1",
+      "license": "BSD-3-Clause plus bundled third-party notices",
+      "licenseFiles": [
+        "scipy-1.18.1.dist-info/LICENSE.txt",
+        "scipy/_lib/_uarray/LICENSE",
+        "scipy/fft/_duccfft/LICENSE.md",
+        "scipy/integrate/LICENSE_DOP",
+        "scipy/spatial/qhull_src/COPYING_QHULL.txt"
+      ]
     }
   ],
   "javascript": [

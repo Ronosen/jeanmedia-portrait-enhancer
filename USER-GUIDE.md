@@ -65,3 +65,10 @@ Pipeline revision 21 adds a local semantic prop check before reconstruction. It 
 
 
 Pipeline revision 22 repairs cropped light-backdrop equipment independently of floor detection, checks isolated objects before treating equipment as a prop, and prevents saturated floor reflections from becoming protected colour islands. It preserves weaker floor-edge evidence and avoids retaining a wide old-background ring at the subject edge. Dark repaired equipment areas use nearby source backdrop donors to correct colour drift while retaining reconstructed texture. Existing saved plans retain their earlier compositing behavior until Auto Edit is run again.
+
+
+## r24 - Scene context and protected edges
+
+Rerun Auto Edit to apply the new pipeline. Internal masks distinguish detached room decorations above a measured backdrop rail from held/nearby portrait props. PyMatting refines uncertain edges and foreground colour. Repair checks can trigger one local retry; unresolved problems remain marked for review. First use may take longer while numerical routines initialize. No manual mask control is required. Existing projects retain their old rendering.
+
+No source or sample photographs were processed for r24 acceptance, at the user's request. Visual testing is reserved for the user; this build is not a client-readiness certificate. Grounded SAM 2 and SDXL are not bundled. See EDGE-REFINEMENT.md for exact scope.

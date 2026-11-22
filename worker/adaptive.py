@@ -15,7 +15,7 @@ def auto_edit(image, preview, export=False):
     image, preview, plan = clean_studio(
         image, preview, export=export, floor_mode="patch")
     floor = plan["floorRepairs"]
-    plan['processingRevision']=23
+    plan['processingRevision']=24
     from portrait_enhance import prepare
     plan['portraitEnhancement']=prepare(original_image, original_preview)
     plan["assessment"] = {

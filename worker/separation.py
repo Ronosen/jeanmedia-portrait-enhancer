@@ -177,6 +177,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
    heuristic_decoration[part]=False
  prop_alpha[heuristic_decoration]=1
  semantic_remove=np.zeros((h,w),bool)
+ room_extent=np.zeros((h,w),bool)
  if plan.get('sceneIntentSkill')==1:
   from scene_intent import assess
   from runtime import progress
@@ -184,11 +185,29 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
   # Independently anchored people, their clothes and supporting geometry are
   # never candidates for automatic removal, even if a crop is misclassified.
   anchors=protected.copy()
-  semantic_keep,semantic_remove,decisions=assess(rgb,raw_alpha,decoration,(equipment>0)|panels|overhead,anchors)
+  context=None
+  if plan.get('sceneCleanupRevision',0)>=24:
+   from scene_context import backdrop_boundary,exposed_room
+   context=backdrop_boundary(rgb,model,anchors)
+   plan['sceneContext']=context
+  semantic_keep,semantic_remove,decisions=assess(rgb,raw_alpha,decoration,(equipment>0)|panels|overhead,anchors,context=context)
+  if context is not None:
+   # Extend the observed backdrop into exposed room space, preserving the
+   # measured source material of confirmed portrait props and every anchor.
+   room=exposed_room((h,w),context,anchors)&(semantic_keep==0)
+   room_extent=room
+   context['removalPixels']=int(room.sum())
+   semantic_remove |= room
+   independent |= room
+   crop_wall |= room
   prop_alpha[semantic_remove]=0
   prop_alpha=np.maximum(prop_alpha,semantic_keep)
   alpha[semantic_remove&~anchors]=0
   plan['sceneIntent']=decisions
+  if context is not None and not context.get('detected') and any(
+      d['label'] in ('balloon','flowers') and d['box'][1]==0 for d in decisions['objects']):
+   message='Scene props need review.'
+   if message not in plan.setdefault('review',[]):plan['review'].append(message)
   if decisions['uncertain']:
    plan.setdefault('review',[]).append('Some detached objects have uncertain prop intent; existing protection was retained.')
  alpha=np.maximum(alpha,prop_alpha)
@@ -218,6 +237,8 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  if plan.get('equipmentPlan'):
   from equipment import polygon_mask
   for item in plan['equipmentPlan']['repairs']:equipment |= polygon_mask(alpha.shape,item['polygon'])
+ if plan.get('sceneCleanupRevision',0)>=24:
+  wall |= room_extent&~protected
  selected=removal_mask(rgb,protected,model,plan['floor'],equipment|(panels.astype(np.uint8)*255))
  # The old exclusion margin left wall/softbox slivers beside a person. Those
  # slivers then contaminated the reconstruction donors. Compositing the source
@@ -244,6 +265,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
  layers['edgeProtected']=layers['protected'];layers['backdrop']=pack(selected.astype(np.uint8)*255)
  layers['clutter']=pack(clutter.astype(np.uint8)*255)
  layers['wallSurface']=pack(wall.astype(np.uint8)*255)
+ if plan.get('sceneCleanupRevision',0)>=24:layers['roomExterior']=pack(room_extent.astype(np.uint8)*255)
  layers['sourceContact']=pack(source_contact.astype(np.uint8)*255)
  layers['sourceContactBlend']=pack(np.rint(source_blend*255).astype(np.uint8))
  layers['detachedClutter']=pack(orphan.astype(np.uint8)*255)
@@ -259,7 +281,7 @@ def prepare(plan,rgb,alpha,probability,objects,raw_alpha=None,person_evidence=No
   if message not in plan.setdefault('review',[]):plan['review'].append(message)
  return selected.astype(np.float32)
 
-def composite(source,background,alpha):
+def composite(source,background,alpha,edge_foreground=None):
  # Solid foreground pixels are copied exactly. Only the measured edge is soft.
  matte=alpha.copy();matte[matte>=250]=255;matte[matte<=3]=0
  full=Image.fromarray(matte).resize(source.size,Image.Resampling.BICUBIC)
@@ -272,6 +294,10 @@ def composite(source,background,alpha):
  _,labels=cv2.distanceTransformWithLabels((~valid).astype(np.uint8),cv2.DIST_L2,5,labelType=cv2.DIST_LABEL_PIXEL)
  colours=small[valid];old_background=colours[np.clip(labels-1,0,len(colours)-1)]
  old_background=Image.fromarray(old_background).resize(source.size,Image.Resampling.BILINEAR)
+ edge_delta=None
+ if edge_foreground is not None:
+  delta=np.clip(edge_foreground.astype(np.float32)-small.astype(np.float32),-128,128)
+  edge_delta=[Image.fromarray(delta[:,:,c]).resize(source.size,Image.Resampling.BILINEAR) for c in range(3)]
  result=background.copy()
  for top in range(0,source.height,256):
   box=(0,top,source.width,min(source.height,top+256))
@@ -279,6 +305,8 @@ def composite(source,background,alpha):
   original=np.asarray(source.crop(box));clean=np.asarray(background.crop(box),dtype=np.float32)
   donor=np.asarray(old_background.crop(box),dtype=np.float32)
   foreground=np.clip((original.astype(np.float32)-(1-a[...,None])*donor)/np.maximum(a[...,None],1/255),0,255)
+  if edge_delta is not None:
+   foreground=np.clip(original.astype(np.float32)+np.stack([np.asarray(c.crop(box)) for c in edge_delta],axis=2),0,255)
   mixed=np.rint(np.clip(foreground*a[...,None]+clean*(1-a[...,None]),0,255)).astype(np.uint8)
   mixed[a==1]=original[a==1]
   result.paste(Image.fromarray(mixed),box[:2])
@@ -345,9 +373,29 @@ def render(source,selected,plan):
   background=apply_floor_patches(background,plan['floor'],patches,protected)
  from reconstruction_tone import match as match_reconstruction
  background=match_reconstruction(source,background,plan)
+ if plan.get('sceneCleanupRevision',0)>=24:
+  from repair_quality import harmonize
+  background=harmonize(source,background,plan)
  background=finish(background,plan)
+ edge_foreground=None
+ if plan.get('sceneCleanupRevision',0)>=24:
+  from repair_quality import inspect_and_retry
+  background=inspect_and_retry(source,background,plan)
+  if np.any((matte>3)&(matte<250)):
+   from edge_refinement import saved_foreground_colours
+   progress('Refining foreground colours',87)
+   if not plan.get('edgeColourFailure'):
+    try:
+     edge_foreground=saved_foreground_colours(source,matte,plan)
+     plan.setdefault('edgeRefinement',{})['colourMethod']='pymatting-ml'
+    except (ValueError,RuntimeError,MemoryError,np.linalg.LinAlgError) as error:
+     if plan.get('edgeForeground'):raise
+     plan['edgeColourFailure']=type(error).__name__
+     plan.setdefault('edgeRefinement',{})['colourMethod']='source-decontamination-fallback'
+     message='Subject edges need review.'
+     if message not in plan.setdefault('review',[]):plan['review'].append(message)
  progress('Combining protected subjects and background',90)
- result=composite(source,background,matte)
+ result=composite(source,background,matte,edge_foreground)
  if plan['layers'].get('sourceContact'):
   # Keep original native-resolution antialiasing at internal hard-object
   # joins; preview-mask interpolation must not redraw a physical prop edge.
@@ -359,6 +407,9 @@ def render(source,selected,plan):
  if plan.get('propRepairs'):
   from props import heal_props
   result=heal_props(result,plan['propRepairs'])
+ if plan.get('sceneCleanupRevision',0)>=24:
+  from repair_quality import enforce_source_cores
+  result=enforce_source_cores(source,result,matte,plan)
  return result
 
 def replay(image,preview,plan,export):

@@ -1,0 +1,5 @@
+# Windows x64 / Python 3.12. Existing NumPy and Pillow are retained.
+PyMatting==1.1.16 --hash=sha256:6ad3f787f90d7720b60e9734c33588cb30f98a66abf7bd772fa499d3a32b466a
+numba==0.68.1 --hash=sha256:6d115039768cc2eb3cc99b32355ca507e1bbc653eca5492c83ab6399f218df27
+llvmlite==0.50.0 --hash=sha256:c20595cc3a76e3c85140fdafbf9246c732ddf8e0e646ba2f4e4881f87567300d
+scipy==1.18.1 --hash=sha256:5e4d44984abc0020154ea81b247adeddcc3ac5527b975ff798bd1ba0adc513c2

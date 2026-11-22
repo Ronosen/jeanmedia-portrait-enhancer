@@ -267,3 +267,16 @@ Evidence and per-image remaining inspection points: `qa/folder-v6-final/REVIEW.m
 - [ ] Certify every reconstruction as ready for delivery without visual review.
 
 These are implemented operations, not guarantees of recovering clipped highlights, motion blur or missing original detail. Seven-photo packaged-build acceptance results are recorded separately after execution.
+
+
+## r24 implementation update - 2026-11-22
+
+- [x] Separate object identity from scene role using a measured backdrop/room boundary.
+- [x] Preserve held/nearby/straddling props rather than always protecting balloon identity.
+- [x] Add bounded internal PyMatting edge and foreground-colour refinement.
+- [x] Add local repair illumination matching, seam/colour/texture/donor checks and at most one retry.
+- [x] Save retry decisions for replay and verify opaque source pixels before tonal finishing.
+- [ ] User manual photographic acceptance of r24; no photo pipeline tests requested.
+- [ ] Grounded SAM 2 and SDXL resource evaluation/integration; not bundled in r24.
+
+Implementation checks are synthetic tests and code/build checks, not proof of client-ready output. See EDGE-REFINEMENT.md.

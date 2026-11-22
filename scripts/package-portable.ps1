@@ -16,9 +16,9 @@ function Copy-Tree([string]$From,[string]$To,[string[]]$Exclude=@()) {
 }
 Copy-Tree (Join-Path $PythonRoot 'DLLs') (Join-Path $destination 'python\DLLs')
 Copy-Tree (Join-Path $PythonRoot 'Lib') (Join-Path $destination 'python\Lib') @('site-packages','__pycache__','test','tests','turtledemo','idlelib')
-Copy-Tree (Join-Path $projectRoot '.worker-deps') (Join-Path $destination '.worker-deps') @('__pycache__')
+Copy-Tree (Join-Path $projectRoot '.worker-deps') (Join-Path $destination '.worker-deps') @('__pycache__','tests','test')
 Copy-Tree (Join-Path $projectRoot 'worker') (Join-Path $destination 'worker') @('__pycache__','.runtime-cache','.cache')
-foreach($name in @('README.md','SEPARATED-WORKFLOW.md','SCENE-INTENT.md','CHECKLIST.md','MODEL-MANIFEST.json','MODEL-DECISIONS.md','LICENSE-INVENTORY.json','USER-GUIDE.md','API.md','ACCEPTANCE.md','QA-INPAINTING.json','QA-ALL-IMAGES.md','ADAPTIVE-CLEANUP.md','QA-ADAPTIVE.json','MASKS-AND-BACKDROP.md','QA-V3.json','VERIFICATION.json')) {
+foreach($name in @('README.md','SEPARATED-WORKFLOW.md','SCENE-INTENT.md','EDGE-REFINEMENT.md','EDGE-DEPENDENCIES.json','CHECKLIST.md','MODEL-MANIFEST.json','MODEL-DECISIONS.md','LICENSE-INVENTORY.json','USER-GUIDE.md','API.md','ACCEPTANCE.md','QA-INPAINTING.json','QA-ALL-IMAGES.md','ADAPTIVE-CLEANUP.md','QA-ADAPTIVE.json','MASKS-AND-BACKDROP.md','QA-V3.json','VERIFICATION.json')) {
     $source=Join-Path $projectRoot $name
     if(Test-Path -LiteralPath $source){Copy-Item -LiteralPath $source -Destination $destination}
 }
