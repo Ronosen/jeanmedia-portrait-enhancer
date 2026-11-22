@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
 import numpy as np
-from repair_quality import inspect_arrays,harmonize_arrays,inspect_and_retry
-from backdrop_finish import pack
+from repair_quality import inspect_arrays,harmonize_arrays,inspect_and_retry,harmonize,generic_repair_mask
+from backdrop_finish import pack,unpack
 
 class ArrayFrame:
  def __init__(self,a):self.a=a
@@ -60,5 +60,40 @@ class RepairQualityTests(unittest.TestCase):
     np.testing.assert_array_equal(mask,m);self.assertEqual(settings['inpaintPatch'],'cached');calls.append(1);return frame
    self.assertIs(inspect_and_retry(frame,frame,plan,replay),frame)
   self.assertEqual(len(calls),1)
+ def test_generic_harmonizer_cannot_overwrite_specialist_transition(self):
+  src,m,p,s=self.fixture();dark=np.full(src.shape,20,np.uint8)
+  # This is the conflicting second-pass correction introduced in r24.
+  general=harmonize_arrays(src,dark,m,p,s)
+  self.assertTrue(np.any(general[m]!=dark[m]))
+  plan=self.plan(m,p);plan['sceneCleanupRevision']=25
+  plan['reconstructionTone']={'ownedMask':pack(m.astype(np.uint8)*255)}
+  frame=ArrayFrame(dark)
+  self.assertIs(harmonize(ArrayFrame(src),frame,plan),frame)
+ def test_generic_retry_cannot_redraw_a_specialist_owned_region(self):
+  src,m,p,s=self.fixture();plan=self.plan(m,p);plan['sceneCleanupRevision']=25
+  plan['reconstructionTone']={'ownedMask':pack(m.astype(np.uint8)*255)}
+  report={'issues':[{'kind':'repair-seam'}],'score':1.0}
+  frame=ArrayFrame(src)
+  with patch('repair_quality.inspect_arrays',return_value=(report,m)):
+   inspect_and_retry(frame,frame,plan,lambda *args:self.fail('Specialist region must not be redrawn'))
+  self.assertEqual(plan['repairInspection']['attempts'],1);self.assertTrue(plan['review'])
+ def test_other_repair_regions_and_old_plans_keep_their_behavior(self):
+  _,m,p,_=self.fixture();owned=np.zeros(m.shape,bool);owned[20:35,20:50]=True
+  plan=self.plan(m,p);plan['sceneCleanupRevision']=25
+  plan['reconstructionTone']={'ownedMask':pack(owned.astype(np.uint8)*255)}
+  out=generic_repair_mask(plan,m)
+  np.testing.assert_array_equal(out,m&~owned)
+  plan['sceneCleanupRevision']=24
+  np.testing.assert_array_equal(generic_repair_mask(plan,m),m)
+ def test_specialist_records_ownership_even_when_repair_is_already_good(self):
+  from reconstruction_tone import match
+  src,m,p,_=self.fixture();plan=self.plan(m,p);plan.update(sceneCleanupRevision=25,
+    coefficients=[[45]*3]+[[0]*3]*5,low=[45]*3,high=[45]*3)
+  plan['layers']['protected']=pack(p.astype(np.uint8)*255)
+  plan['layers']['anchoredForegroundAlpha']=plan['layers']['foregroundAlpha']
+  frame=ArrayFrame(src)
+  self.assertIs(match(frame,frame,plan),frame)
+  self.assertEqual(plan['reconstructionTone']['components'],0)
+  np.testing.assert_array_equal(unpack(plan['reconstructionTone']['ownedMask'],m.shape)>0,m)
 
 if __name__=='__main__':unittest.main()

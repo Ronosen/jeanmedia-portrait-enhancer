@@ -72,3 +72,8 @@ Pipeline revision 22 repairs cropped light-backdrop equipment independently of f
 Rerun Auto Edit to apply the new pipeline. Internal masks distinguish detached room decorations above a measured backdrop rail from held/nearby portrait props. PyMatting refines uncertain edges and foreground colour. Repair checks can trigger one local retry; unresolved problems remain marked for review. First use may take longer while numerical routines initialize. No manual mask control is required. Existing projects retain their old rendering.
 
 No source or sample photographs were processed for r24 acceptance, at the user's request. Visual testing is reserved for the user; this build is not a client-readiness certificate. Grounded SAM 2 and SDXL are not bundled. See EDGE-REFINEMENT.md for exact scope.
+
+
+## r25 - Backdrop seam regression guard
+
+The specialized dark-backdrop correction now owns its repair regions, including already-good transitions. Later generic harmonization and retry passes cannot overwrite or redraw them, and their removed source material cannot contaminate generic donors. Other repairs remain eligible. Rerun Auto Edit for revision 25. Verification uses synthetic stage-interaction tests and build/runtime checks only; no photographs were processed. User manual photographic acceptance is pending.

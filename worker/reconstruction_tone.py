@@ -6,7 +6,7 @@ floor, foreground and healthy source backdrop outside the repair untouched.
 import cv2
 import numpy as np
 from PIL import Image
-from backdrop_finish import unpack
+from backdrop_finish import unpack,pack
 
 def match(source,background,plan):
  if plan.get('sceneCleanupRevision',0)<22 or 'coefficients' not in plan:return background
@@ -25,13 +25,16 @@ def match(source,background,plan):
  src=np.asarray(source.resize((w,h),Image.Resampling.LANCZOS)).astype(float)
  predicted=np.asarray(background.resize((w,h),Image.Resampling.LANCZOS)).astype(float)
  donor=~protected&~clutter&upper&(np.max(np.abs(src-ref),axis=2)<30)
- correction=np.zeros((h,w,3),np.float32);count=0
+ correction=np.zeros((h,w,3),np.float32);count=0;owned=np.zeros((h,w),bool)
  n,labels,stats,_=cv2.connectedComponentsWithStats(selected.astype(np.uint8))
  for i in range(1,n):
   if stats[i,cv2.CC_STAT_AREA]<h*w*.0005:continue
   part=labels==i;radius=max(9,round(min(h,w)*.08))|1
   ring=(cv2.dilate(part.astype(np.uint8),np.ones((radius,radius),np.uint8))>0)&donor
   if ring.sum()<60:continue
+  # This specialist also owns already-correct dark repairs. A later generic
+  # harmonizer must not reinterpret a smooth rail transition as colour drift.
+  if plan.get('sceneCleanupRevision',0)>=25:owned|=part
   # Fit illumination from actual nearby donors, not an extrapolation of a
   # global model that may have been biased by the removed bright frame.
   plane=np.stack([np.ones((h,w)),xx/max(1,w-1),yy/max(1,h-1)],axis=2)
@@ -70,6 +73,8 @@ def match(source,background,plan):
    correction[part]*=(t*t*(3-2*t))[part,None]
   count+=1
  plan['reconstructionTone']={'version':1,'components':count,'method':'observed-donor-residual-v1'}
+ if plan.get('sceneCleanupRevision',0)>=25:
+  plan['reconstructionTone'].update(version=2,ownedMask=pack(owned.astype(np.uint8)*255),owner='dark-backdrop-specialist')
  if not count:return background
  # Add a smoothly enlarged correction to the native neural result; this is
  # colour transfer of the reconstructed texture, never a solid RGB overlay.

@@ -1,6 +1,11 @@
 # JeanMedia Portrait Enhancer
 
-Current development build r24 adds measured studio-room context, internal
+Current development build r25 preserves the specialized dark-backdrop seam
+correction against later generic harmonization/retry passes. Repair regions
+have an explicit owner, including already-correct transitions. Rerun Auto Edit
+on older results. No photo pipeline tests were run; manual acceptance is pending.
+
+The r24 update added measured studio-room context, internal
 PyMatting edge refinement, bounded repair-colour matching and a one-retry repair
 inspection stage. See [EDGE-REFINEMENT.md](EDGE-REFINEMENT.md). No photographs
 were used for this build's acceptance checks; visual testing is reserved for

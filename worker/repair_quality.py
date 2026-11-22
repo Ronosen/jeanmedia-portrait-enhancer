@@ -57,12 +57,13 @@ def inspect_arrays(source, result, repair, protected, surface):
     return {'version':1,'issues':issues,'score':round(score,5),'visualReviewRequired':True},suspicious
 
 
-def harmonize_arrays(source, result, repair, protected, wall):
+def harmonize_arrays(source, result, repair, protected, wall, donor_exclude=None):
     """Adjust only low-frequency drift within repaired, locally smooth wall."""
     h,w=repair.shape;out=result.astype(np.float32).copy()
     selected=repair&wall&~protected
     guard=cv2.dilate(protected.astype(np.uint8),np.ones((5,5),np.uint8))>0
     donor=wall&~repair&~guard
+    if donor_exclude is not None:donor &= ~donor_exclude
     yy,xx=np.mgrid[:h,:w]
     plane=np.stack([np.ones((h,w)),xx/max(1,w-1),yy/max(1,h-1)],axis=2)
     # High-frequency neural texture is retained; only drift in its illumination
@@ -107,12 +108,28 @@ def masks(plan):
     return repair&~protected,protected,wall,surface
 
 
+def specialist_owned(plan):
+    shape=plan['layers']['shape']
+    tone=plan.get('reconstructionTone',{})
+    if plan.get('sceneCleanupRevision',0)<25 or not tone.get('ownedMask'):return np.zeros(shape,bool)
+    return unpack(tone['ownedMask'],shape)>0
+
+
+def generic_repair_mask(plan,repair):
+    # A region has one colour-transfer/reconstruction owner. Preserve the r23
+    # specialist's edge fade instead of stacking a second correction on it.
+    return repair&~specialist_owned(plan)
+
+
 def harmonize(source,background,plan,selection=None):
     h,w=plan['layers']['shape'];repair,protected,wall,_=masks(plan)
+    all_repairs=repair.copy()
+    repair=generic_repair_mask(plan,repair)
     if selection is not None:repair &= selection
+    if not (repair&wall).any():return background
     src=np.asarray(source.resize((w,h),Image.Resampling.LANCZOS))
     small=np.asarray(background.resize((w,h),Image.Resampling.LANCZOS))
-    adjusted=harmonize_arrays(src,small,repair,protected,wall)
+    adjusted=harmonize_arrays(src,small,repair,protected,wall,donor_exclude=all_repairs)
     delta=adjusted.astype(np.float32)-small
     channels=[Image.fromarray(delta[:,:,c]).resize(background.size,Image.Resampling.BILINEAR) for c in range(3)]
     mask=Image.fromarray((repair&wall&~protected).astype(np.uint8)*255).resize(background.size,Image.Resampling.NEAREST)
@@ -135,12 +152,13 @@ def inspect_and_retry(source, background, plan, repairer=None):
     if previous:
         if previous.get('retryAccepted'):
             from neural import repair as neural_repair
-            retry=plan['repairRetry'];mask=unpack(retry['mask'],shape)>0
+            retry=plan['repairRetry'];mask=generic_repair_mask(plan,unpack(retry['mask'],shape)>0)
             base=background
             background=(repairer or neural_repair)(background,mask,protected,retry['settings'])
             background=harmonize(base,background,plan,mask)
         return background
     report,suspect=inspect(background)
+    suspect=generic_repair_mask(plan,suspect)
     report.update(attempts=1,retryAccepted=False,state='needs-review' if report['issues'] else 'checks-passed')
     if suspect.any() and suspect.mean()<.4:
         from neural import repair as neural_repair

@@ -607,7 +607,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
         return image,preview,plan
     if fresh_plan and separated is not None and floor_mode=='patch':
         plan['sceneIntentSkill']=1
-        plan['sceneCleanupRevision']=24
+        plan['sceneCleanupRevision']=25
         from backdrop_finish import unpack,pack
         from scene_evidence import floor_evidence
         from separation import prepare as prepare_layers
@@ -647,7 +647,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
         from separation import prepare
         if fresh_plan and floor_mode=='patch':
             plan['sceneIntentSkill']=1
-            plan['sceneCleanupRevision']=24
+            plan['sceneCleanupRevision']=25
         if fresh_plan:
             plan['edgeRefinement']=edge_report
             plan.setdefault('review',[]).extend(edge_report.get('review',[]))

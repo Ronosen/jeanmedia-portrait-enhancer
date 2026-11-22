@@ -30,7 +30,7 @@ without redefining the reconstruction horizon. Background feathering follows
 surface boundaries rather than leaving a wide old-background ring around people.
 
 The prop and whitening features began in revision 21; new automatic edits now
-use revision 24. The scene-intent skill runs inside
+use revision 25. The scene-intent skill runs inside
 the application, before background reconstruction. It needs no API key or photo
 upload and adds no mask controls to the interface.
 

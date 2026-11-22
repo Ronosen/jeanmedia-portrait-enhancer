@@ -280,3 +280,8 @@ These are implemented operations, not guarantees of recovering clipped highlight
 - [ ] Grounded SAM 2 and SDXL resource evaluation/integration; not bundled in r24.
 
 Implementation checks are synthetic tests and code/build checks, not proof of client-ready output. See EDGE-REFINEMENT.md.
+
+
+## r25 - Backdrop seam regression guard
+
+The specialized dark-backdrop correction now owns its repair regions, including already-good transitions. Later generic harmonization and retry passes cannot overwrite or redraw them, and their removed source material cannot contaminate generic donors. Other repairs remain eligible. Rerun Auto Edit for revision 25. Verification uses synthetic stage-interaction tests and build/runtime checks only; no photographs were processed. User manual photographic acceptance is pending.
