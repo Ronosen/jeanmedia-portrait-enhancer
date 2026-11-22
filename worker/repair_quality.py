@@ -129,7 +129,8 @@ def harmonize(source,background,plan,selection=None):
     if not (repair&wall).any():return background
     src=np.asarray(source.resize((w,h),Image.Resampling.LANCZOS))
     small=np.asarray(background.resize((w,h),Image.Resampling.LANCZOS))
-    adjusted=harmonize_arrays(src,small,repair,protected,wall,donor_exclude=all_repairs)
+    excluded=all_repairs if plan.get('sceneCleanupRevision',0)>=25 else None
+    adjusted=harmonize_arrays(src,small,repair,protected,wall,donor_exclude=excluded)
     delta=adjusted.astype(np.float32)-small
     channels=[Image.fromarray(delta[:,:,c]).resize(background.size,Image.Resampling.BILINEAR) for c in range(3)]
     mask=Image.fromarray((repair&wall&~protected).astype(np.uint8)*255).resize(background.size,Image.Resampling.NEAREST)
