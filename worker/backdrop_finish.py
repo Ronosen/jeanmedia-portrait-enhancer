@@ -57,6 +57,8 @@ def finish(image,plan):
         if plan['separation']['backdropMethod'] in ('local-evidence-v3','local-evidence-v5'):
             wall=unpack(plan['layers']['wallSurface'],shape)>0
             surface=(wall|protected) if plan.get('sceneCleanupRevision',0)>=22 else wall
+            from smart_crop import continuous_surface
+            surface=continuous_surface(surface,plan)
             distance=cv2.distanceTransform(surface.astype(np.uint8),cv2.DIST_L2,3)
             delta*=np.clip(distance/max(4,h*.02),0,1)
         mask=(delta!=0).astype(np.uint8)*255

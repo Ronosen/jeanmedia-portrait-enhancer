@@ -607,7 +607,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
         return image,preview,plan
     if fresh_plan and separated is not None and floor_mode=='patch':
         plan['sceneIntentSkill']=1
-        plan['sceneCleanupRevision']=25
+        plan['sceneCleanupRevision']=26
         from backdrop_finish import unpack,pack
         from scene_evidence import floor_evidence
         from separation import prepare as prepare_layers
@@ -647,7 +647,7 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
         from separation import prepare
         if fresh_plan and floor_mode=='patch':
             plan['sceneIntentSkill']=1
-            plan['sceneCleanupRevision']=25
+            plan['sceneCleanupRevision']=26
         if fresh_plan:
             plan['edgeRefinement']=edge_report
             plan.setdefault('review',[]).extend(edge_report.get('review',[]))
@@ -656,6 +656,11 @@ def clean_studio(image, preview, plan=None, clean_floor=False, export=False, flo
         plan['layers']['rawForegroundAlpha']=pack(np.rint(raw_alpha*255).astype(np.uint8))
     if group_info:plan['groupProtection']=group_info
     plan["protectedObjects"] = kept
+    if fresh_plan and separated is not None and floor_mode=='patch':
+        from smart_crop import prepare as prepare_crop
+        from backdrop_finish import unpack
+        prepare_crop(plan,original_image.size)
+        alpha=unpack(plan['layers']['backdrop'],plan['layers']['shape']).astype(np.float32)/255
     progress("Repairing backdrop and floor", 65)
     preview = render_backdrop(original_preview, alpha, plan)
     if export:

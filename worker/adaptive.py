@@ -15,7 +15,7 @@ def auto_edit(image, preview, export=False):
     image, preview, plan = clean_studio(
         image, preview, export=export, floor_mode="patch")
     floor = plan["floorRepairs"]
-    plan['processingRevision']=25
+    plan['processingRevision']=26
     from portrait_enhance import prepare
     plan['portraitEnhancement']=prepare(original_image, original_preview)
     plan["assessment"] = {
@@ -23,6 +23,7 @@ def auto_edit(image, preview, export=False):
         "floorAction": "repair" if floor["count"] else "preserve",
         "floorRepairCount": floor["count"],
         "floorUncertain": bool(floor.get("review")),
+        "cropAction": "crop" if plan.get('smartCrop',{}).get('enabled') else "preserve",
     }
     from runtime import manifest
     plan["runtime"] = manifest()

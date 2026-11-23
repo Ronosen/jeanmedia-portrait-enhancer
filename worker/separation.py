@@ -317,6 +317,8 @@ def render(source,selected,plan):
  from floor import decode_mask,apply_floor_patches
  from backdrop_finish import finish
  from runtime import progress
+ from smart_crop import context_canvas
+ working_source=context_canvas(source,plan)
  shape=plan['layers']['shape'];matte=unpack(plan['layers']['foregroundAlpha'],shape)
  foreground=matte>3;holes=(selected>0)|foreground
  if plan.get('floorRepairs'):holes |= decode_mask(plan['floorRepairs']['extension'],tuple(shape))>0
@@ -326,12 +328,14 @@ def render(source,selected,plan):
  if plan.get('floorRepairs') and not source_floor:
   plate.update(floorRepairs=plan['floorRepairs'],floor=plan['floor'],adaptiveRevision=plan.get('adaptiveRevision',3))
  progress('Removing subjects from background plate',60)
- background=repair(source,holes,np.zeros(shape,bool),plate)
+ background=repair(working_source,holes,np.zeros(shape,bool),plate)
  if plan.get('separation',{}).get('backdropMethod') in ('local-evidence-v3','local-evidence-v4','local-evidence-v5'):
   wall=unpack(plan['layers']['wallSurface'],shape)>0
   # Fade at a surface boundary, not at every foreground hole: retaining old
   # background around the matte creates a visible dark/bright subject halo.
   surface=(wall|foreground) if plan.get('sceneCleanupRevision',0)>=22 else wall
+  from smart_crop import continuous_surface
+  surface=continuous_surface(surface,plan)
   weight=np.clip(cv2.distanceTransform(surface.astype(np.uint8),cv2.DIST_L2,3)/max(4,shape[0]*.02),0,1)*wall
   clutter=unpack(plan['layers']['clutter'],shape)>0
   weight[foreground|clutter]=1
@@ -351,14 +355,14 @@ def render(source,selected,plan):
   context_floor=(floor_method=='context-crop-v1' and extension.any()) or (floor_method in ('context-crop-v2','context-crop-v3') and (extension.any() or ground_clutter.any()))
   if context_floor and plan['floor']<.98:
    from floor_context import reconstruct
-   repaired,full_mask=reconstruct(source,extension,protected,clutter,plan['floor'],plan.setdefault('floorPlate',{'version':2 if floor_method in ('context-crop-v2','context-crop-v3') else 1,'blendRevision':2 if floor_method=='context-crop-v3' else 1}),selected>0)
+   repaired,full_mask=reconstruct(working_source,extension,protected,clutter,plan['floor'],plan.setdefault('floorPlate',{'version':2 if floor_method in ('context-crop-v2','context-crop-v3') else 1,'blendRevision':2 if floor_method=='context-crop-v3' else 1}),selected>0)
    defects=dict(patches);defects['extension']=pack(np.zeros(shape,np.uint8))
    repaired=apply_floor_patches(repaired,plan['floor'],defects,protected|clutter)
    defect_mask=Image.fromarray(decode_mask(patches['defects'],tuple(shape))).resize(source.size,Image.Resampling.NEAREST)
    full_mask=Image.fromarray(np.maximum(np.asarray(full_mask),np.asarray(defect_mask)))
    plan['floorRepairs']['engine']='lama-crop-v1'
   else:
-   repaired=apply_floor_patches(source,plan['floor'],patches,protected|clutter)
+   repaired=apply_floor_patches(working_source,plan['floor'],patches,protected|clutter)
    floor_mask=(decode_mask(patches['defects'],tuple(shape))>0)|extension
    full_mask=Image.fromarray(floor_mask.astype(np.uint8)*255).resize(source.size,Image.Resampling.NEAREST)
   background=Image.composite(repaired,background,full_mask)
@@ -372,15 +376,15 @@ def render(source,selected,plan):
    plan['floorRepairs']['engine']='clone-v1'
   background=apply_floor_patches(background,plan['floor'],patches,protected)
  from reconstruction_tone import match as match_reconstruction
- background=match_reconstruction(source,background,plan)
+ background=match_reconstruction(working_source,background,plan)
  if plan.get('sceneCleanupRevision',0)>=24:
   from repair_quality import harmonize
-  background=harmonize(source,background,plan)
+  background=harmonize(working_source,background,plan)
  background=finish(background,plan)
  edge_foreground=None
  if plan.get('sceneCleanupRevision',0)>=24:
   from repair_quality import inspect_and_retry
-  background=inspect_and_retry(source,background,plan)
+  background=inspect_and_retry(working_source,background,plan)
   if np.any((matte>3)&(matte<250)):
    from edge_refinement import saved_foreground_colours
    progress('Refining foreground colours',87)

@@ -36,3 +36,10 @@ The start page selects Solo or Batch without discarding either in-memory session
 The local_tool allowlist includes batch-list, batch-output and batch-report. batch-list enumerates supported files at one folder level. batch-output creates edited beside the source, refuses linked destination folders and chooses a new numbered JPEG filename on collision. The existing atomic export remains the final no-overwrite guard. batch-report atomically writes a run-specific JSON journal under edited. Stop after current waits for export and journal completion; in-session resume skips saved entries. File failures continue, while disk-space/report failures stop the loop.
 
 photo.py --compact-output returns only saved/backdropStatus/review for an export. The default Solo response is unchanged. This keeps per-photo masks and reconstruction plans out of the batch queue and avoids retaining 200 previews or replaying a separate export plan for every batch item.
+
+
+## r26 - Intelligent edge crop
+
+Auto Edit can crop measured unwanted edge strips when subjects, props and safety margins remain intact; otherwise it uses normal repair. Feet/supports reserve floor contact space. Discarded regions are excluded from repairs and donors. The saved smartCrop box uses original preview coordinates; internal layers and face masks stay on the original canvas. Delivered preview/export, native inspection and output dimensions share the same crop. Before/after comparison uses matched framing; Undo shows the full original. No manual crop marking is required. Originals remain unchanged. See SMART-CROP.md.
+
+No photo pipeline tests were run; verification uses synthetic masks/geometry, code/build and runtime checks. User manual acceptance remains pending.

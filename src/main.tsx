@@ -8,7 +8,7 @@ import { PhotoViewport } from "./PhotoViewport";
 import { BatchEditor } from "./BatchEditor";
 import "./style.css";
 
-type Plan = { review?: string[]; [key: string]: unknown };
+type Plan = { review?: string[]; smartCrop?: {enabled?: boolean}; [key: string]: unknown };
 type Preview = { width: number; height: number; before: string; after: string; studioPlan?: Plan; backdropStatus: string; review?: string[] };
 type Item = { source: string; original?: Preview; result?: Preview; edited: boolean; approved: boolean; error?: string };
 type Progress = { stage: string; percent: number };
@@ -16,7 +16,7 @@ type Project = { source: string; studioPlan?: Plan; enhance: boolean; approved: 
 const formats = [{ name: "Photos", extensions: ["jpg", "jpeg", "png", "tif", "tiff"] }];
 const projects = [{ name: "JeanMedia project", extensions: ["jeanmedia"] }];
 const filename = (path: string) => path.split(/[\\/]/).pop() || "photo";
-const needsEdit = (item: Item) => !!item.original && (!item.edited || item.result?.studioPlan?.processingRevision !== 25);
+const needsEdit = (item: Item) => !!item.original && (!item.edited || item.result?.studioPlan?.processingRevision !== 26);
 function preference(key: string, fallback: number) { try { return Number(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
 
 function App() {
@@ -168,7 +168,7 @@ function App() {
       </div>}
       <section className="editor" aria-label="Photo workspace">
         {preview ? <>
-          <PhotoViewport key={file.source}><div className="comparison" onDoubleClick={e => {
+          <PhotoViewport key={`${file.source}:${file.edited}:${preview.width}x${preview.height}`}><div className="comparison" onDoubleClick={e => {
             const box=e.currentTarget.getBoundingClientRect();
             const w=Math.min(1000,preview.width),h=Math.min(800,preview.height);
             const x=Math.max(0,Math.min(preview.width-w,Math.round((e.clientX-box.left)/box.width*preview.width-w/2)));
@@ -180,6 +180,7 @@ function App() {
             {file.edited && <><img className="before" src={preview.before} alt="Original photo" style={{clipPath:`inset(0 ${100-split}% 0 0)`}} />{split>0 && split<100 && <div className="divider" style={{left:`${split}%`}} />}</>}
           </div></PhotoViewport>
           <div className="comparison-controls">{file.edited && <><span>Before</span><input aria-label="Before and after" type="range" min={0} max={100} value={split} onChange={e => setSplit(Number(e.target.value))} /><span>After</span></>}
+            {file.edited && preview.studioPlan?.smartCrop?.enabled && <span>Auto-cropped</span>}
             <button disabled={!!busy} onClick={() => void run("Inspecting…", async () => {
               const w=Math.min(1000,preview.width),h=Math.min(800,preview.height);
               setInspection(await invoke("photo",{source:file.source,enhance:file.edited,

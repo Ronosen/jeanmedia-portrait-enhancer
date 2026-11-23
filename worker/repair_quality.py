@@ -57,7 +57,7 @@ def inspect_arrays(source, result, repair, protected, surface):
     return {'version':1,'issues':issues,'score':round(score,5),'visualReviewRequired':True},suspicious
 
 
-def harmonize_arrays(source, result, repair, protected, wall, donor_exclude=None):
+def harmonize_arrays(source, result, repair, protected, wall, donor_exclude=None,boundary_extension=None):
     """Adjust only low-frequency drift within repaired, locally smooth wall."""
     h,w=repair.shape;out=result.astype(np.float32).copy()
     selected=repair&wall&~protected
@@ -86,7 +86,9 @@ def harmonize_arrays(source, result, repair, protected, wall, donor_exclude=None
         if np.percentile(np.abs(difference[part]),75)<10:continue
         # No writes outside the true repair mask or into a person/prop. The
         # correction is bounded rather than painting a constant RGB surface.
-        distance=cv2.distanceTransform((part|guard).astype(np.uint8),cv2.DIST_L2,3)
+        boundary=part|guard
+        if boundary_extension is not None:boundary |= boundary_extension
+        distance=cv2.distanceTransform(boundary.astype(np.uint8),cv2.DIST_L2,3)
         weight=np.clip((distance-1)/max(3,min(h,w)*.012),0,1)
         delta=np.clip(difference,-28,28)*weight[...,None]
         out[part]+=delta[part]
@@ -105,6 +107,9 @@ def masks(plan):
         # Floor checks operate on explicitly selected floor repairs only;
         # they never redefine the floor horizon or select healthy floor.
         surface|=~wall
+    if plan.get('smartCrop',{}).get('enabled'):
+        from smart_crop import retained_mask
+        keep=retained_mask(plan);repair &= keep;wall &= keep;surface &= keep
     return repair&~protected,protected,wall,surface
 
 
@@ -130,7 +135,9 @@ def harmonize(source,background,plan,selection=None):
     src=np.asarray(source.resize((w,h),Image.Resampling.LANCZOS))
     small=np.asarray(background.resize((w,h),Image.Resampling.LANCZOS))
     excluded=all_repairs if plan.get('sceneCleanupRevision',0)>=25 else None
-    adjusted=harmonize_arrays(src,small,repair,protected,wall,donor_exclude=excluded)
+    from smart_crop import retained_mask
+    extension=~retained_mask(plan) if plan.get('smartCrop',{}).get('enabled') else None
+    adjusted=harmonize_arrays(src,small,repair,protected,wall,donor_exclude=excluded,boundary_extension=extension)
     delta=adjusted.astype(np.float32)-small
     channels=[Image.fromarray(delta[:,:,c]).resize(background.size,Image.Resampling.BILINEAR) for c in range(3)]
     mask=Image.fromarray((repair&wall&~protected).astype(np.uint8)*255).resize(background.size,Image.Resampling.NEAREST)
@@ -147,7 +154,10 @@ def inspect_and_retry(source, background, plan, repairer=None):
     shape=plan['layers']['shape'];h,w=shape
     repair,protected,wall,surface=masks(plan)
     src=np.asarray(source.resize((w,h),Image.Resampling.LANCZOS))
-    def inspect(value):return inspect_arrays(src,np.asarray(value.resize((w,h),Image.Resampling.LANCZOS)),repair,protected,surface)
+    def inspect(value):
+        from smart_crop import context_canvas
+        value=context_canvas(value,plan)
+        return inspect_arrays(src,np.asarray(value.resize((w,h),Image.Resampling.LANCZOS)),repair,protected,surface)
     previous=plan.get('repairInspection')
     # Replay the recorded decision. Never invent another repair during export.
     if previous:

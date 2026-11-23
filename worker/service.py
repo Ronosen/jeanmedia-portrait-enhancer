@@ -39,7 +39,8 @@ def change_mask(plan):
         from backdrop_finish import unpack
         alpha=unpack(layers['foregroundAlpha'],shape)
         pixels=np.maximum(pixels,((alpha>3)&(alpha<250)).astype(np.uint8)*255)
-    return Image.fromarray(pixels)
+    from smart_crop import apply as crop_output
+    return crop_output(Image.fromarray(pixels),plan)
 
 
 def project(action, data):
@@ -132,7 +133,8 @@ def dispatch(action, data):
         from local_masks import selection
         mask=selection(data['studioPlan'],data['layer'])
         rgba=np.zeros((*mask.shape,4),np.uint8);rgba[:,:,:3]=(255,80,60);rgba[:,:,3]=np.rint(mask*150).astype(np.uint8)
-        buffer=io.BytesIO();Image.fromarray(rgba).save(buffer,'PNG')
+        from smart_crop import apply as crop_output
+        buffer=io.BytesIO();crop_output(Image.fromarray(rgba),data['studioPlan']).save(buffer,'PNG')
         return {'url':'data:image/png;base64,'+base64.b64encode(buffer.getvalue()).decode('ascii')}
     if action in ("save-project", "open-project"):
         return project(action, data)

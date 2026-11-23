@@ -77,3 +77,10 @@ No source or sample photographs were processed for r24 acceptance, at the user's
 ## r25 - Backdrop seam regression guard
 
 The specialized dark-backdrop correction now owns its repair regions, including already-good transitions. Later generic harmonization and retry passes cannot overwrite or redraw them, and their removed source material cannot contaminate generic donors. Other repairs remain eligible. Rerun Auto Edit for revision 25. Verification uses synthetic stage-interaction tests and build/runtime checks only; no photographs were processed. User manual photographic acceptance is pending.
+
+
+## r26 - Intelligent edge crop
+
+Auto Edit can crop measured unwanted edge strips when subjects, props and safety margins remain intact; otherwise it uses normal repair. Feet/supports reserve floor contact space. Discarded regions are excluded from repairs and donors. The saved smartCrop box uses original preview coordinates; internal layers and face masks stay on the original canvas. Delivered preview/export, native inspection and output dimensions share the same crop. Before/after comparison uses matched framing; Undo shows the full original. No manual crop marking is required. Originals remain unchanged. See SMART-CROP.md.
+
+No photo pipeline tests were run; verification uses synthetic masks/geometry, code/build and runtime checks. User manual acceptance remains pending.

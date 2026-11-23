@@ -270,6 +270,8 @@ def main():
             raise ValueError("Review and approve this edit before saving.")
         progress("Saving full resolution", 85)
         finished = apply_correction(clean_backdrop(image, mask), lut, portrait) if lut is not None else image
+        from smart_crop import apply as crop_output
+        finished=crop_output(finished,studio_plan)
         export_photo(finished, args.output, args.dpi, args.quality)
         progress("Saved", 100)
         if args.compact_output:
@@ -281,15 +283,21 @@ def main():
                               "studioPlan": studio_plan}))
     elif args.inspect_region:
         x, y, w, h = args.inspect_region
-        if min(x, y) < 0 or not 1 <= w <= 1400 or not 1 <= h <= 1400 or x+w > image.width or y+h > image.height:
+        from smart_crop import output_box,output_size
+        output_width,output_height=output_size(image.size,studio_plan)
+        if min(x, y) < 0 or not 1 <= w <= 1400 or not 1 <= h <= 1400 or x+w > output_width or y+h > output_height:
             raise ValueError("Inspection region is outside the photo.")
+        left,top,_,_=output_box(image.size,studio_plan);x+=left;y+=top
         box = (x, y, x+w, y+h)
         after = apply_correction(image, lut, portrait).crop(box) if lut is not None else image.crop(box)
         print(json.dumps({"before": preview_url(full_original.crop(box)), "after": preview_url(after)}))
     else:
         after = apply_correction(clean_backdrop(preview, mask), lut, portrait) if lut is not None else preview
-        before = preview_url(original_preview)
-        print(json.dumps({"width": image.width, "height": image.height, "frames": frames,
+        from smart_crop import apply as crop_output,output_size
+        before = preview_url(crop_output(original_preview,studio_plan))
+        after=crop_output(after,studio_plan)
+        output_width,output_height=output_size(image.size,studio_plan)
+        print(json.dumps({"width": output_width, "height": output_height, "frames": frames,
                           "before": before, "after": preview_url(after) if args.enhance or args.remove_edge_equipment or equipment_plan or studio_plan else before,
                           "backdropStatus": backdrop_status,
                           "equipmentRegion": args.remove_edge_equipment,

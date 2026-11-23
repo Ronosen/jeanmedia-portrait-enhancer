@@ -1,5 +1,11 @@
 # JeanMedia Portrait Enhancer
 
+Current development build r26 adds automatic safe edge cropping before filling.
+It trims measured unwanted outer strips only when protected subjects/props and
+their margins fit inside the retained frame; otherwise normal repair continues.
+See [SMART-CROP.md](SMART-CROP.md). Original photos remain unchanged and manual
+photographic acceptance is pending.
+
 Current development build r25 preserves the specialized dark-backdrop seam
 correction against later generic harmonization/retry passes. Repair regions
 have an explicit owner, including already-correct transitions. Rerun Auto Edit
